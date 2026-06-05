@@ -1,0 +1,37 @@
+---
+title: "Analytical Portfolio - Computational Statistics in R"
+subtitle: "Advanced statistical modeling and visualization"
+---
+
+# Welcome to the analytical portfolio
+
+I present here practical applications of statistics and the R language in business, financial, and other data analysis. Each of the following projects constitutes a comprehensive case study – from initial data preparation, through hypothesis testing, to the construction of predictive models.
+
+## Projects Overview
+
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-6}
+### [Data exploration and visualization](lab1.qmd)
+Stock trend and flight statistics analysis using advanced visualization techniques.
+:::
+
+::: {.g-col-12 .g-col-md-6}
+### [Parameter estimation and distributions](lab2.qmd)
+Modeling mass phenomena and statistical inference based on probability distributions.
+:::
+
+::: {.g-col-12 .g-col-md-6}
+### [Statistical hypothesis testing](lab3.qmd)
+Verification of statistical significance in clinical trials, industry, and sports.
+:::
+
+::: {.g-col-12 .g-col-md-6}
+### [Regression models and ANOVA](lab4.qmd)
+Analysis of multidimensional relationships and business outcome forecasting.
+:::
+
+:::
+
+
+I invite you to explore the detailed reports available in the sidebar menu.

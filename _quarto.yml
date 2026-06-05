@@ -1,0 +1,54 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "Analytical Portfolio - Computational Statistics"
+  description: "Portfolio of data analysis and statistical modeling results."
+  
+  # Sidebar navigation
+  sidebar:
+    style: "docked"
+    search: true
+    contents:
+      - section: "Projects"
+        contents:
+          - text: "Data exploration and visualization"
+            file: lab1.qmd
+          - text: "Parameter estimation and distributions"
+            file: lab2.qmd
+          - text: "Statistical hypothesis testing"
+            file: lab3.qmd
+          - text: "Regression models and ANOVA"
+            file: lab4.qmd
+
+  # Navbar
+  navbar:
+    background: primary
+    left:
+      - text: "Home"
+        file: index.qmd
+
+format:
+  html:
+    theme: 
+      light: flatly
+      dark: darkly
+    toc: true
+    toc-title: "Table of Contents"
+    toc-location: right
+    toc-depth: 3
+    number-sections: true
+    number-depth: 3
+    smooth-scroll: true
+    
+    # Code management
+    code-fold: show
+    code-summary: "show/hide"
+    code-overflow: wrap
+    code-copy: true
+
+execute:
+  echo: true
+  warning: false
+  freeze: auto

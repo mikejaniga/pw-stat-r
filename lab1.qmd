@@ -1,0 +1,480 @@
+---
+title: "Data exploration and visualization"
+author: "Michał Janiga"
+---
+
+```{r, echo=FALSE}
+pdf.options(encoding='ISOLatin2')
+```
+
+# Analysis of stock price volatility
+
+For data from the last 15 months concerning two selected listed companies:  
+- create charts of the percentage changes of closing prices against the date,  
+- plot and compare histograms of the percentage changes of closing prices, and add density lines for normal distributions with parameters derived from the data to the charts,  
+- create one joint figure with box plots of the closing price changes.  
+
+## Data preparation
+
+```{r}
+ticker1 <- "CDR"
+ticker2 <- "PZU"
+cutoff_date <- seq(Sys.Date(), length = 2, by = "-15 months")[2]
+
+if (file.exists(".env")) readRenviron(".env")
+apikey <- Sys.getenv("STOOQ_API_KEY")
+
+download_data <- function(ticker) {
+  url <- paste0('https://stooq.pl/q/d/l/?s=', ticker, '&i=d', '&apikey=', apikey)
+
+  file_path <- paste0("data/", ticker, ".csv")
+  if (!file.exists(file_path)) {
+    download.file(url, file_path, quiet = TRUE)
+  }
+  
+  data <- read.csv(file_path)
+  data$Data <- as.Date(data$Data)
+
+  data <- data[data$Data >= cutoff_date, ]
+  data <- data[order(data$Data), ]
+  
+  n <- nrow(data)
+  data$PctChange <- c(NA, diff(data$Zamkniecie) / data$Zamkniecie[-n] * 100)
+  
+  data <- data[!is.na(data$PctChange), c("Data", "PctChange")]
+  data$Ticker <- ticker
+  return(data)
+}
+
+df1 <- download_data(ticker1)
+df2 <- download_data(ticker2)
+```
+
+##  Chart 1a: Price over time: CDR 
+
+```{r,fig.align='center'}
+plot(df1$Data, df1$PctChange, type = "l", col = "blue", 
+     main = paste("Percentage changes:", ticker1),
+     xlab = "Date: last 15 months", 
+     ylab = "Closing price change (%)")
+```
+
+##  Chart 1b: Price over time: PZU 
+
+```{r,fig.align='center'}
+plot(df2$Data, df2$PctChange, type = "l", col = "red", 
+     main = paste("Percentage changes:", ticker2),
+     xlab = "Date: last 15 months", 
+     ylab = "Closing price change (%)")
+```
+
+##  Chart 2a: Histograms and normal distribution CDR 
+
+```{r,fig.align='center'}
+hist(df1$PctChange, breaks = 30, freq = FALSE, 
+     col = "lightblue",
+     main = paste("Histogram:", ticker1), 
+     xlab = "Closing price change (%)", ylab = "Frequency")
+curve(dnorm(x, mean = mean(df1$PctChange), sd = sd(df1$PctChange)), 
+      add = TRUE, col = "darkred", lwd = 2)
+```
+
+##  Chart 2b: Histograms and normal distribution PZU 
+
+```{r,fig.align='center'}
+hist(df2$PctChange, breaks = 30, freq = FALSE,
+     col = "mistyrose",
+     main = paste("Histogram:", ticker2),
+     xlab = "Closing price change (%)", ylab = "Frequency")
+curve(dnorm(x, mean = mean(df2$PctChange), sd = sd(df2$PctChange)), 
+      add = TRUE, col = "darkred", lwd = 2)
+```
+
+##  Chart 3: Volatility comparison (box plot) 
+
+```{r,fig.align='center'}
+boxplot(df1$PctChange, df2$PctChange, 
+        names = c(ticker1, ticker2),
+        col = c("lightblue", "mistyrose"),
+        main = "Daily volatility comparison",
+        ylab = "Closing price change (%)")
+```
+
+Analyzing the data of the daily percentage change of the closing price, differences in the range of these changes can be observed. CDR shares proved to be more volatile in the studied period than PZU shares, which is a fairly obvious observation considering the nature of both companies.
+The normal distribution, in the case of analyzing daily volatility, provides useful information which is the general level of volatility of a given instrument in the studied period, but it does not reflect "unrealized" risk by underestimating extreme events.
+
+# Analysis of air crash statistics
+
+1.  Create a chart of the number of air crashes in individual:
+-   months of the year (January - December),  
+-   days of the month (1-31),  
+-   days of the week (weekdays()).  
+2.  Plot how the following changed over subsequent years:  
+-   the number of people who survived the crashes,  
+-   the percentage of people (in percent) who survived the crashes.  
+
+```{r}
+crashes = read.csv("data/crashes.csv")
+```
+
+##  Conversion: date 
+
+```{r}
+crashes$DateObj = as.Date(crashes$Date, format='%m/%d/%Y')
+```
+
+##  Conversion: date components 
+
+```{r}
+crashes$Year = as.numeric(format(crashes$DateObj, '%Y'))
+crashes$Month = factor(format(crashes$DateObj, '%m'))
+crashes$Day = as.numeric(format(crashes$DateObj, '%d'))
+
+crashes$WeekdayNum = as.numeric(format(crashes$DateObj, "%u"))
+
+crashes$Weekday = factor(crashes$WeekdayNum, 
+                         levels = 1:7, 
+                         labels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+```
+
+##  Aggregation: month 
+
+```{r}
+month_table = table(crashes$Month)
+```
+
+##  Chart 1: Number of crashes in individual months of the year 
+
+Months that have 31 days will be burdened with an additional error resulting from the fact that there are more accidents the more days there are in a given time interval.
+
+This could "more" emphasize the "danger" of a month with 31 days (and underestimate it in the case of 28 days).
+
+```{r,fig.align='center'}
+barplot(month_table, 
+        main = "Number of air crashes in individual months",
+        col = "blue", 
+        xlab = "Month", 
+        ylab = "Number of crashes")
+```
+
+##  Aggregation: day of the month 
+
+```{r}
+day_table = table(crashes$Day)
+```
+
+##  Chart 2: Number of crashes on individual days of the month (1-31) 
+
+In this step, it should be emphasized that the 31st day of the month is unrepresentative because there are ~ half as many 31st days of the month as other days on an annual scale.
+
+```{r,fig.align='center'}
+barplot(day_table, 
+        main = "Number of crashes by day of the month (1-31)",
+        col = "yellow", 
+        xlab = "Day of the month", 
+        ylab = "Number of crashes")
+```
+
+##  Aggregation: day of the week 
+
+```{r}
+day_table = table(crashes$Weekday)
+```
+
+##  Chart 3: Number of crashes on individual days of the week (1-7) 
+
+```{r,fig.align='center'}
+barplot(day_table, 
+        main = "Number of crashes by day of the week (1-7)",
+        col = "red", 
+        xlab = "Day of the week", 
+        ylab = "Number of crashes")
+```
+
+##  Calculations 
+
+```{r}
+crashes$Survivors = crashes$Aboard - crashes$Fatalities
+
+data_per_year = aggregate(cbind(Survivors, Aboard) ~ Year, data = crashes, sum)
+
+data_per_year$SurvivalRate = (data_per_year$Survivors / data_per_year$Aboard) * 100
+```
+
+##  Chart 1: Number of survivors 
+
+```{r,fig.align='center'}
+plot(data_per_year$Year, data_per_year$Survivors,
+     type = "h",
+     col = "blue",
+     main = "Number of survivors of crashes (subsequent years)",
+     xlab = "Year",
+     ylab = "Number of survivors")
+```
+
+##  Chart 2: Percentage of survivors 
+
+```{r,fig.align='center'}
+plot(data_per_year$Year, data_per_year$SurvivalRate,
+     type = "h",
+     col = "darkgreen",
+     main = "Percentage of survivors (%)",
+     xlab = "Year",
+     ylab = "Percentage (%)")
+
+```
+
+# Binomial distribution simulation
+
+1.  For two different sets of binomial distribution parameters (rbinom):
+-   Binom(25,0.2)  
+-   Binom(25,0.8)  
+
+generate random samples consisting of M = 1000 samples and plot the values of the generated data.
+
+2.  For each of the distributions, plot the empirical and theoretical (use dbinom function) probability functions on one chart, and empirical and theoretical (use pbinom function) cumulative distribution functions on the second chart. In both cases, scale the x-axis from 0 to 25.
+
+##  Data generation
+
+```{r}
+n <- 25
+M <- 1000
+x_range <- 0:25
+
+set.seed(42)
+sample1 <- rbinom(M, size = n, prob = 0.2)
+sample2 <- rbinom(M, size = n, prob = 0.8)
+```
+
+##  Distribution: Binom(25, 0.2)
+
+### Chart for generated values
+
+```{r,fig.align='center'}
+plot(sample1,
+     main = "Values of Binom(25, 0.2)", 
+     xlab = "Index", ylab = "Value",
+     col = "blue")
+```
+
+### Probability function (empirical vs theoretical)
+
+```{r}
+empirical_sample1 <- table(factor(sample1, levels = x_range)) / M
+theoretical_sample1 <- dbinom(x_range, size = n, prob = 0.2)
+```
+
+```{r,fig.align='center'}
+plot(x_range, theoretical_sample1, type = "h", lwd = 2, 
+     col = "blue", 
+     main = "Probability Binom(25, 0.2)", 
+     xlab = "k", ylab = "P(X=k)")
+points(x_range, empirical_sample1, col = "red", pch = 16)
+legend("topright", 
+       legend = c("Theoretical", "Empirical"), 
+       col = c("blue", "red"), 
+       lwd = c(2, NA), 
+       pch = c(NA, 16))
+```
+
+### Cumulative distribution function (empirical vs theoretical)
+
+```{r,fig.align='center'}
+plot(x_range, pbinom(x_range, size = n, prob = 0.2), 
+     type = "s", lwd = 2, col = "blue",
+     main = "Cumulative distribution function Binom(25, 0.2)", 
+     xlab = "x", ylab = "F(x)")
+lines(ecdf(sample1), col = "red", verticals = TRUE, do.points = FALSE)
+legend("bottomright", 
+       legend = c("Theoretical", "Empirical"), 
+       col = c("blue", "red"), lwd = 2)
+```
+
+##  Distribution: Binom(25, 0.8)
+
+### Chart for generated values
+
+```{r,fig.align='center'}
+plot(sample2, main = "Values of Binom(25, 0.8)",
+     xlab = "Index", 
+     ylab = "Value", 
+     col = "darkgreen")
+```
+
+### Probability function (empirical vs theoretical)
+
+```{r}
+empirical_sample2 <- table(factor(sample2, levels = x_range)) / M
+theoretical_sample2 <- dbinom(x_range, size = n, prob = 0.8)
+```
+
+```{r,fig.align='center'}
+plot(x_range, theoretical_sample2, type = "h", lwd = 2, 
+     col = "darkgreen", 
+     main = "Probability Binom(25, 0.8)", 
+     xlab = "k", ylab = "P(X=k)")
+points(x_range, empirical_sample2, col = "red", pch = 16)
+legend("topleft", 
+       legend = c("Theoretical", "Empirical"), 
+       col = c("darkgreen", "red"), 
+       lwd = c(2, NA), pch = c(NA, 16))
+```
+
+### Cumulative distribution function (empirical vs theoretical)
+
+```{r,fig.align='center'}
+plot(x_range, pbinom(x_range, size = n, prob = 0.8), 
+     type = "s", lwd = 2, col = "darkgreen", 
+     main = "Cumulative distribution function Binom(25, 0.8)",
+     xlab = "x", ylab = "F(x)")
+lines(ecdf(sample2), col = "red",
+      verticals = TRUE, do.points = FALSE)
+legend("bottomright", 
+       legend = c("Theoretical", "Empirical"), 
+       col = c("darkgreen", "red"), lwd = 2)
+```
+
+# Impact of sample size on statistical distribution
+
+1.  For the binomial distribution Binom(25, 0.2), generate three random samples consisting of M = 100, 1000 and 10000 samples.
+2.  For individual samples, plot empirical and theoretical probability functions, as well as empirical and theoretical cumulative distribution functions. Scale the x-axes from 0 to 25.
+3.  In all cases, calculate empirical means and variances. Compare them with each other and with theoretical values for the Binom(25, 0.2) distribution.
+
+```{r}
+set.seed(42)
+M_1 <- 100
+M_2 <- 1000
+M_3 <- 10000
+n <- 25
+p <- 0.2
+x_range <- 0:25
+```
+
+##  Generating random samples
+
+```{r}
+sample_100 <- rbinom(M_1, n, p)
+sample_1000 <- rbinom(M_2, n, p)
+sample_10000 <- rbinom(M_3, n, p)
+```
+
+##  Function charts: probability and cumulative distribution (empirical and theoretical)
+
+```{r}
+theoretical_prob_mass_func <- dbinom(x_range, n, p)
+theoretical_cum_dist_func <- pbinom(x_range, n, p)
+```
+
+### For M = 100 
+
+```{r}
+emp_pmf_100 <- table(factor(sample_100, levels = x_range)) / M_1
+```
+
+```{r,fig.align='center'}
+plot(x_range, theoretical_prob_mass_func, 
+     type = "h", lwd = 2, col = "blue", 
+     main = "Probability function (M=100)", 
+     xlab = "k", ylab = "P")
+points(x_range, as.numeric(emp_pmf_100), 
+       col = "red", pch = 16)
+legend("topright", 
+       legend = c("Theoretical", "Empirical"),
+       col = c("blue", "red"), lwd = 2)
+```
+
+```{r,fig.align='center'}
+plot(x_range, theoretical_cum_dist_func, type = "s", 
+     lwd = 2, col = "blue", 
+     main = "Cumulative distribution function (M=100)", 
+     xlab = "x", ylab = "F")
+lines(ecdf(sample_100), col = "red", 
+      verticals = TRUE, do.points = FALSE)
+legend("bottomright", 
+       legend = c("Theoretical", "Empirical"), 
+       col = c("blue", "red"), lwd = 2)
+```
+
+### For M = 1000 
+
+```{r}
+emp_pmf_1000 <- table(factor(sample_1000, levels = x_range)) / M_2
+```
+
+```{r,fig.align='center'}
+plot(x_range, theoretical_prob_mass_func, type = "h", 
+     lwd = 2, col = "blue", 
+     main = "Probability function (M=1000)", 
+     xlab = "k", ylab = "P")
+points(x_range, as.numeric(emp_pmf_1000), col = "red", pch = 16)
+legend("topright", legend = c("Theoretical", "Empirical"), 
+       col = c("blue", "red"), lwd = 2)
+```
+
+```{r,fig.align='center'}
+plot(x_range, theoretical_cum_dist_func, type = "s", 
+     lwd = 2, col = "blue", 
+     main = "Cumulative distribution function (M=1000)", 
+     xlab = "x", ylab = "F")
+lines(ecdf(sample_1000), col = "red", 
+      verticals = TRUE, do.points = FALSE)
+legend("bottomright", 
+       legend = c("Theoretical", "Empirical"), 
+       col = c("blue", "red"), lwd = 2)
+```
+
+### For M = 10000 
+
+```{r}
+emp_pmf_10000 <- table(factor(sample_10000, levels = x_range)) / M_3
+```
+
+```{r,fig.align='center'}
+plot(x_range, theoretical_prob_mass_func, type = "h", 
+     lwd = 2, col = "blue",
+     main = "Probability function (M=10000)", 
+     xlab = "k", ylab = "P")
+points(x_range, as.numeric(emp_pmf_10000), 
+       col = "red", pch = 16)
+legend("topright", legend = c("Theoretical", "Empirical"), 
+       col = c("blue", "red"), lwd = 2)
+```
+
+```{r,fig.align='center'}
+plot(x_range, theoretical_cum_dist_func, type = "s", 
+     lwd = 2, col = "blue",
+     main = "Cumulative distribution function (M=10000)", 
+     xlab = "x", ylab = "F")
+lines(ecdf(sample_10000), col = "red", 
+      verticals = TRUE, do.points = FALSE)
+legend("bottomright", legend = c("Theoretical", "Empirical"), 
+       col = c("blue", "red"), lwd = 2)
+```
+
+##  Calculating and comparing parameters
+
+```{r}
+# Theoretical values
+theo_mean <- n * p
+theo_var  <- n * p * (1 - p)
+
+# Empirical values
+mean_100 <- mean(sample_100)
+var_100  <- var(sample_100)
+
+mean_1000 <- mean(sample_1000)
+var_1000  <- var(sample_1000)
+
+mean_10000 <- mean(sample_10000)
+var_10000  <- var(sample_10000)
+
+result_table <- data.frame(
+  "Type" = c("Theory", "M = 100", "M = 1000", "M = 10000"),
+  "Mean" = c(theo_mean, mean_100, mean_1000, mean_10000),
+  "Variance" = c(theo_var, var_100, var_1000, var_10000)
+)
+
+result_table
+```
+
+Based on the table above, it can be observed that as the sample size increases, the empirical mean and variance tend toward the theoretical mean and variance. It should be assumed that a larger sample size will allow for more accurate calculations.

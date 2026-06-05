@@ -1,0 +1,268 @@
+---
+title: "Statistical Hypothesis Testing"
+author: "Michał Janiga"
+---
+
+```{r, echo=FALSE}
+pdf.options(encoding='ISOLatin2')
+```
+
+# Analysis of Mean Values for Medical Data
+
+The file tempciala.txt contains recorded values of heart rate and body temperature for 65 men (gender = 1) and 65 women (gender = 2).
+
+Separately for men and women:
+
+* estimate the mean and standard deviation of temperature,
+
+* verify at the significance level $\alpha = 0.05$ the hypothesis that the mean temperature is equal to 36.6 $^\circ$C against the alternative hypothesis that the mean temperature is different, assuming that the temperatures have a normal distribution and the variance of the distribution is unknown.
+
+Since the variance of the distribution is unknown as indicated in the task, it should be estimated based on the sample standard deviation.
+ Student's t-test provides a wider "width" of the normal distribution, allowing for safer inference with an unknown variance.
+
+The `t.test` function requires the investigated characteristic to have a normal distribution. This is satisfied by the task description.
+
+```{r}
+# Load data
+temp_data <- read.csv("data/tempciala.txt")
+names(temp_data) <- c("temperature", "gender", "heart_rate")
+
+# Split into groups
+men_temp <- temp_data$temperature[temp_data$gender == 1]
+women_temp <- temp_data$temperature[temp_data$gender == 2]
+
+# Parameter estimation
+mean_men <- mean(men_temp)
+sd_men <- sd(men_temp)
+mean_women <- mean(women_temp)
+sd_women <- sd(women_temp)
+
+# Display estimation results
+data.frame(
+  Gender = c("Men", "Women"),
+  Mean = c(mean_men, mean_women),
+  Std_dev = c(sd_men, sd_women)
+)
+
+# Hypothesis tests of hypothetical mean body temperature (H0: mu = 36.6)
+# By default, a two-sided test is performed
+# The confidence level resulting from the task is explicitly provided
+men_test <- t.test(men_temp, conf.level = 0.95, mu = 36.6)
+women_test <- t.test(women_temp, conf.level = 0.95, mu = 36.6)
+
+men_test
+women_test
+```
+
+## Conclusions
+
+For men, the estimated mean temperature is approx. `r round(mean_men, 2)` $^\circ$C, and the standard deviation is approx. `r round(sd_men, 2)` $^\circ$C. The p-value (`r round(men_test$p.value, 4)`) is less than $\alpha=0.05$, so we reject the null hypothesis $H_0$ in favor of the alternative. The mean temperature in men differs significantly from 36.6 $^\circ$C.
+
+For women, the estimated mean temperature is approx. `r round(mean_women, 2)` $^\circ$C, and the standard deviation is approx. `r round(sd_women, 2)` $^\circ$C. The p-value (`r format(women_test$p.value, scientific=TRUE, digits=4)`) is significantly less than $\alpha=0.05$, so we reject the null hypothesis $H_0$ in favor of the alternative. The mean temperature in women also differs significantly from 36.6 $^\circ$C.
+
+***
+
+# Investigation of Seasonality of Phenomena
+
+The table below contains data regarding the number of suicides in the United States in 1970, broken down by individual months.
+
+| Month       | Number of suicides | Number of days |
+| :---        |          :----:    |   :----:       |
+| January     | 1867               | 31             |
+| February    | 1789               | 28             |
+| March       | 1944               | 31             |
+| April       | 2094               | 30             |
+| May         | 2097               | 31             |
+| June        | 1981               | 30             |
+| July        | 1887               | 31             |
+| August      | 2024               | 31             |
+| September   | 1928               | 30             |
+| October     | 2032               | 31             |
+| November    | 1978               | 30             |
+| December    | 1859               | 31             |
+
+Verify at the significance level $\alpha = 0.05$ whether the presented data indicate a constant intensity of the investigated phenomenon, or rather suggest seasonal variation in the number of suicides. Assume that in the case of a constant intensity, the number of suicides in a given month is proportional to the number of days in that month.
+
+```{r}
+# Data
+suicides <- c(1867, 1789, 1944, 2094, 2097, 1981, 1887, 2024, 1928, 2032, 1978, 1859)
+days_in_month <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+
+# Hypothesis: number of suicides proportional to the number of days
+# Theoretical probabilities
+theoretical_probs <- days_in_month / sum(days_in_month)
+
+# Chi-squared goodness-of-fit test
+seasonality_test <- chisq.test(x = suicides, p = theoretical_probs)
+seasonality_test
+```
+
+## Conclusions
+
+The p-value (`r format(seasonality_test$p.value, scientific=TRUE)`) is significantly less than the significance level $\alpha=0.05$. This means we reject the hypothesis of a constant intensity of suicides proportional to the number of days in the month. The data indicate the presence of seasonal variation in the number of suicides.
+
+***
+
+# Advanced Normality Tests of Financial Time Series
+
+For a selected company listed on the Warsaw Stock Exchange (GPW), load data from the stooq.pl website, and then
+
+* calculate the percentage changes of the lowest prices on individual days over the last year, plot their histogram, and draw the probability density function of a normal distribution with parameters estimated based on their values,
+
+* applying various tests discussed in the examples, verify at the significance level $\alpha = 0.05$ the hypothesis that the percentage changes of the lowest prices on individual days over the last year have a normal distribution.
+
+```{r}
+library(moments)
+library(nortest)
+
+# Selected company: KGHM
+if (file.exists(".env")) readRenviron(".env")
+apikey <- Sys.getenv("STOOQ_API_KEY")
+ticker <- 'KGH'
+url <- paste0('https://stooq.pl/q/d/l/?s=', ticker, 
+                 '&i=d', '&apikey=', apikey)
+file_path <- paste0("data/", ticker, ".csv")
+if (!file.exists(file_path)) {
+  download.file(url, file_path, quiet = TRUE)
+}
+kgh_df <- read.csv(file_path)
+names(kgh_df)[names(kgh_df) == "Data"] <- "Date"
+names(kgh_df)[names(kgh_df) == "Najnizszy"] <- "Low"
+kgh_df$Date <- as.Date(kgh_df$Date)
+kgh_year_df <- kgh_df[which(kgh_df$Date >= (Sys.Date() - 365)),]
+low_prices <- kgh_year_df$Low
+
+# Calculation of percentage changes (vector method avoiding NA)
+pct_changes <- diff(low_prices) / low_prices[-length(low_prices)] * 100
+
+# Parameters for normal distribution
+mu <- mean(pct_changes)
+sigma <- sd(pct_changes)
+
+# Histogram and density
+hist(pct_changes, breaks = 30, probability = TRUE, 
+     main = paste("Histogram of percentage changes:", ticker),
+     xlab = "Percentage change [%]", ylab = "Density", col = "lightblue")
+curve(dnorm(x, mean = mu, sd = sigma), add = TRUE, col = "red", lwd = 2)
+
+# Normality tests
+shapiro_test <- shapiro.test(pct_changes)
+ks_test <- ks.test(pct_changes, "pnorm", mean = mu, sd = sigma)
+# Tests from the "moments" library
+ans_test <- anscombe.test(pct_changes)
+ago_test <- agostino.test(pct_changes)
+jb_test <- jarque.test(pct_changes)
+lillie_test <- lillie.test(pct_changes)
+
+shapiro_test
+ks_test
+ans_test
+ago_test
+jb_test
+lillie_test
+```
+
+## Conclusions
+
+Statistical analysis of the percentage changes of the `r ticker` stock price exhibits classic characteristics of financial time series. The results of the tests at the significance level $\alpha = 0.05$ are as follows:
+
+1.  Rejection of normality: The Shapiro-Wilk test ($p = `r format(shapiro_test$p.value, scientific=TRUE, digits=4)`$) and the Jarque-Bera test ($p = `r format(jb_test$p.value, scientific=TRUE, digits=4)`$) unambiguously reject the null hypothesis $H_0$. 
+2.  Cause of non-normality (leptokurtosis): The Anscombe-Glynn test shows high kurtosis at `r round(ans_test$statistic["kurt"], 2)`. The very low $p = `r format(ans_test$p.value, scientific=TRUE, digits=4)`$ provides statistical evidence for the presence of "heavy tails".
+3.  Skewness: D'Agostino's test shows skewness at `r round(ago_test$statistic["skew"], 3)`. The p-value $p = `r round(ago_test$p.value, 4)`$ is greater than $\alpha$, meaning there are no grounds to reject the hypothesis of distribution symmetry.
+4.  KS test specificity: The Kolmogorov-Smirnov test ($p = `r round(ks_test$p.value, 4)`$) is the only one that does not reject $H_0$. This confirms its lower sensitivity to tail anomalies compared to moment-based tests (JB, Anscombe). The test measures the maximum distance between cumulative distribution functions, which in this case oscillates around the area of highest probability density, explaining the above statement. Furthermore, the KS test could be somewhat overly optimistic due to estimating parameters from the sample – it is less likely to reject the hypothesis of non-normality even when the data are non-normal.
+5.  To "update" the KS test, an additional Lilliefors test was conducted using the "nortest" library. This test clearly indicates non-normality since $p = `r format(lillie_test$p.value, scientific=TRUE, digits=4)`$ clearly rejects the null hypothesis $H_0$.
+
+Summary: Since key tests (Shapiro-Wilk, Jarque-Bera) returned $p < \alpha$, we assume that the price change distribution is not normal. The dominant feature is leptokurtosis, which means that the risk of extreme events is higher than in the theoretical model.
+
+***
+
+# Comparison of the Lifespan of Industrial Components
+
+The file lozyska.txt contains the operating times (in millions of cycles) until failure of bearings made of two different materials.
+
+* Perform a test of no difference between the operating times of bearings made of different materials, assuming that the operating time until failure is described by a normal distribution, without assuming equal variances. Assume a significance level $\alpha = 0.05$.
+
+* Perform an analogous test, without assuming normal distributions.
+
+* **(optional)** Estimate the probability that a bearing made of the first material will operate longer than a bearing made of the second material.
+
+```{r}
+# Load data
+bearing_data <- read.csv("data/lozyska.txt", quote = "'")
+type1 <- bearing_data$Typ.I
+type2 <- bearing_data$Typ.II
+
+# 1. Welch's t-test (assuming normality, not assuming equal variances)
+t_test <- t.test(type1, type2, var.equal = FALSE)
+t_test
+
+# 2. Wilcoxon test (without assuming normality)
+wilcox_test <- wilcox.test(type1, type2)
+wilcox_test
+
+# 3. Estimating the probability P(X > Y)
+# We can do this by checking all pairs (x_i, y_j)
+comparison_matrix <- outer(type1, type2, ">")
+p_hat <- mean(comparison_matrix)
+p_hat
+```
+
+## Conclusions
+
+- The result of Welch's t-test (p-value = `r round(t_test$p.value, 4)`) at the significance level $\alpha=0.05$ provides no grounds to reject the hypothesis of no difference between the mean bearing operating times (p-value > 0.05).
+- The result of the Wilcoxon test (p-value = `r round(wilcox_test$p.value, 4)`) also does not allow rejecting the hypothesis of no difference between the distributions (p-value > 0.05).
+
+In both cases, we assume that there are no statistically significant differences in the operating times of bearings made of different materials.
+
+**Additionally:** The estimated probability that a bearing made of the first material will operate longer than a bearing made of the second material is approximately `r round(p_hat * 100, 2)`%. Although Type I bearings operated longer than Type II bearings in `r round(p_hat * 100, 2)`% of cases, at the significance level $\alpha = 0.05$, it was not possible to prove that this difference is permanent and reproducible. This suggests that Type I may be better in practice; however, to confirm this thesis with statistical certainty, further study with a larger sample size is required.
+
+***
+
+# Analysis of Statistical Independence in Sports
+
+Using data from the pl.fcstats.com website, verify the hypothesis of independence of home team results (wins, draws, and losses) from the country in which the football matches are played. Assume a significance level $\alpha = 0.05$.
+
+* Perform the tests based on data regarding the following leagues:
+
+    * German – Bundesliga (German league),
+    
+    * Polish – Ekstraklasa (Liga polska),
+    
+    * English – Premier League (English league),
+    
+    * Spanish – LaLiga (Liga hiszpańska).
+    
+* The data can be found in the "Porównanie lig" (League comparison) -> "Zwycięzcy meczów" (Match winners) tab, in columns (excluding the [%] sign):
+
+    * 1 – home wins, e.g., 125 for the German league (Bundesliga),
+    
+    * x – draws, e.g., 86 for the German league,
+    
+    * 2 – home losses, e.g., 95 for the German league.
+
+```{r}
+# Preparation of contingency table (2025/2026 season)
+# Rows: League, Columns: Result (win, draw, loss)
+results <- matrix(c(
+  125, 86, 95,   # Bundesliga
+  108, 65, 67,   # Ekstraklasa
+  193, 96, 91,  # Premier League
+  194, 95, 91   # LaLiga
+), nrow = 4, byrow = TRUE)
+
+rownames(results) <- c("Bundesliga", "Ekstraklasa", "Premier League", "LaLiga")
+colnames(results) <- c("1", "X", "2")
+
+# Display table
+results
+
+# Chi-squared test of independence
+independence_test <- chisq.test(results)
+independence_test
+```
+
+## Conclusions
+
+The p-value (`r round(independence_test$p.value, 4)`) is greater than the significance level $\alpha=0.05$. This means there are no grounds to reject the hypothesis of the independence of match results (wins, draws, and losses) from the country/league in which the matches are played. The 1, X, 2 statistics in the analyzed leagues are sufficiently close to each other to prevent finding significant differences.
+
+***
