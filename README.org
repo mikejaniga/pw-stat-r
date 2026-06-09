@@ -25,5 +25,4 @@ Below is the outline of the core files configuration defined in =_quarto.yml=:
 | =lab2.qmd=    | *Lab 2:* Parameter estimation and probability distributions.   |
 | =lab3.qmd=    | *Lab 3:* Statistical hypothesis testing.                       |
 | =lab4.qmd=    | *Lab 4:* Regression models and Analysis of Variance (ANOVA).   |
-| =_site/=      | /Generated automatically./ The compiled static HTML website.   |
-
+| =docs/=       | /Generated automatically./ The compiled static HTML website.   |
