@@ -6,8 +6,6 @@
 You can view the interactive version of this portfolio here:
 👉 [[https://mikejaniga.github.io/pw-stat-r/][Launch Analytical Portfolio]]
 
----
-
 * About The Project
 This repository acts as a comprehensive analytical portfolio for *Computational Statistics*. It compiles various data science labs and statistical reports into a single, cohesive, responsive website built using *Quarto*.
 
