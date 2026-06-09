@@ -1,0 +1,544 @@
+[
+  {
+    "objectID": "lab4.html",
+    "href": "lab4.html",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "",
+    "text": "For the closing rate of the Euro (EURPLN):\n- Draw box plots illustrating the exchange rate distributions for the last six months of 2025 (separately for each month from July to December 2025).\n- Using the analysis of variance method, verify the hypothesis of equality of the mean exchange rates across these six months. Comment on the obtained results.\n- Perform a post-hoc analysis of deviations from the mean using Tukey’s and Bonferroni’s methods. Comment on the obtained results.\n- Conduct tests comparing the mean exchange rates across these six months without assuming normality of their distributions. Comment on the obtained results.\n\n\n\n\nshow/hide\n# Helper function to load data from stooq.pl\nread_rates &lt;- function(symbol, dateStart, dateEnd) {\n  if (file.exists(\".env\")) readRenviron(\".env\")\n  apiKey &lt;- Sys.getenv(\"STOOQ_API_KEY\")\n  \n  # Formatting dates to the YYYYMMDD format required by the stooq API\n  d1 &lt;- format(dateStart, \"%Y%m%d\")\n  d2 &lt;- format(dateEnd, \"%Y%m%d\")\n  \n  webLink &lt;- paste0('https://stooq.pl/q/d/l/?s=', symbol, \n                    '&i=d&d1=', d1, '&d2=', d2, '&apikey=', apiKey)\n  \n  fileName &lt;- paste0('data/', symbol, '_', d1, '_', d2, '.csv')\n  if (!file.exists(fileName)) {\n    download.file(webLink, fileName, quiet = TRUE)\n  }\n  \n  df_symbol &lt;- read.csv(fileName)\n  # Map Polish column headers to English for consistency\n  names(df_symbol)[names(df_symbol) == \"Data\"] &lt;- \"Date\"\n  names(df_symbol)[names(df_symbol) == \"Zamkniecie\"] &lt;- \"Close\"\n  df_symbol$Date &lt;- as.Date(df_symbol$Date)\n  \n  # Optional local filtering for certainty\n  df_symbol &lt;- df_symbol[which(df_symbol$Date &gt;= dateStart & df_symbol$Date &lt;= dateEnd),]\n  \n  df_symbol &lt;- subset(df_symbol, select = c(Date, Close))\n  names(df_symbol) &lt;- c('Date', symbol)\n  df_symbol\n}\n\n# Fetching data for EURPLN (July - December 2025)\ndateStart &lt;- as.Date(\"2025-07-01\")\ndateEnd &lt;- as.Date(\"2025-12-31\")\ndf_eur &lt;- read_rates('EURPLN', dateStart, dateEnd)\n\n# Data preparation - adding a column with the month number for grouping\ndf_eur$Month &lt;- format(df_eur$Date, \"%m\")\n\n\n\n\n\n\n\nshow/hide\n# Box plots for individual months\nboxplot(EURPLN ~ Month, data = df_eur, \n        main = \"EURPLN exchange rate distribution in the 2nd half of 2025\",\n        xlab = \"Month\", ylab = \"Closing rate [PLN]\",\n        names = c(\"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"),\n        col = \"lightblue\")\ngrid()\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nshow/hide\n# Conducting the Analysis of Variance (ANOVA)\naov_res &lt;- aov(EURPLN ~ Month, data = df_eur)\nsummary(aov_res)\n\n\n             Df  Sum Sq  Mean Sq F value Pr(&gt;F)    \nMonth         5 0.02364 0.004728   51.27 &lt;2e-16 ***\nResiduals   125 0.01153 0.000092                   \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\n\nshow/hide\ntab_anova &lt;- summary(aov_res)[[1]]\np_raw &lt;- tab_anova[\"Month\", \"Pr(&gt;F)\"]\np_value &lt;- format.pval(p_raw, eps = 0.001, digits = 3)\n\n\nComment: The obtained p-value \\(Pr(&gt;F) &lt;0.001\\) is significantly smaller than the assumed significance level \\(\\alpha = 0.05\\). This provides a solid basis to reject the null hypothesis of equal mean EURPLN exchange rates in the analyzed months (July–December 2025). This result indicates that the mean exchange rates of the currency in the studied periods differed from one another in a statistically significant way. The extremely high F-statistic value confirms that the month is a factor that strongly differentiates the level of the closing exchange rate. To determine precisely which months differ from each other, a post-hoc analysis (e.g., Tukey’s test) must be conducted.\n\n\n\n\n\nshow/hide\n# Tukey's HSD method\ntukey_res &lt;- TukeyHSD(aov_res)\nprint(tukey_res)\n\n\n  Tukey multiple comparisons of means\n    95% family-wise confidence level\n\nFit: aov(formula = EURPLN ~ Month, data = df_eur)\n\n$Month\n              diff          lwr          upr     p adj\n08-07  0.004397660 -0.003990956  0.012786277 0.6537979\n09-07  0.002453202 -0.005835158  0.010741561 0.9558889\n10-07 -0.007185217 -0.015380966  0.001010531 0.1212538\n11-07 -0.018106435 -0.026603968 -0.009608902 0.0000001\n12-07 -0.033689526 -0.041977885 -0.025401167 0.0000000\n09-08 -0.001944459 -0.010423579  0.006534662 0.9855265\n10-08 -0.011582878 -0.019971494 -0.003194261 0.0014979\n11-08 -0.022504095 -0.031187796 -0.013820395 0.0000000\n12-08 -0.038087186 -0.046566307 -0.029608066 0.0000000\n10-09 -0.009638419 -0.017926778 -0.001350060 0.0127134\n11-09 -0.020559636 -0.029146526 -0.011972747 0.0000000\n12-09 -0.036142727 -0.044522673 -0.027762781 0.0000000\n11-10 -0.010921217 -0.019418751 -0.002423684 0.0039818\n12-10 -0.026504308 -0.034792667 -0.018215949 0.0000000\n12-11 -0.015583091 -0.024169980 -0.006996202 0.0000092\n\n\nshow/hide\nplot(tukey_res, las = 1)\n\n\n\n\n\n\n\n\n\nshow/hide\n# Bonferroni correction method\nbonf_res &lt;- pairwise.t.test(df_eur$EURPLN, df_eur$Month, p.adj = 'bonf')\nprint(bonf_res)\n\n\n\n    Pairwise comparisons using t tests with pooled SD \n\ndata:  df_eur$EURPLN and df_eur$Month \n\n   07      08      09      10      11     \n08 1.0000  -       -       -       -      \n09 1.0000  1.0000  -       -       -      \n10 0.1859  0.0016  0.0152  -       -      \n11 1.3e-07 1.5e-10 3.0e-09 0.0045  -      \n12 &lt; 2e-16 &lt; 2e-16 &lt; 2e-16 1.1e-14 9.4e-06\n\nP value adjustment method: bonferroni \n\n\nComment: The post-hoc analysis using Tukey’s and Bonferroni’s methods yields highly consistent results and allows for a precise identification of month pairs between which significant differences occurred. The tests confirm that the summer months (July, August, September) form a cluster with a similar exchange rate level (no significant differences, Bonferroni p-value equal to 1.000). Significant shifts begin in October (which differs significantly from August and September). In turn, November and December differ in a highly significant manner (p &lt; 0.001) from all preceding months. These findings, combined with the negative mean differences observed in Tukey’s test, clearly document a downward trend in the EURPLN rate (appreciation of the Polish złoty) across the entire studied half-year. Tukey’s plot visualizes this trend, as the majority of confidence intervals are shifted to the left of the zero line.\n\n\n\n\n\nshow/hide\n# Conducting the Kruskal-Wallis test\nkruskal_res &lt;- kruskal.test(EURPLN ~ Month, data = df_eur)\nprint(kruskal_res)\n\n\n\n    Kruskal-Wallis rank sum test\n\ndata:  EURPLN by Month\nKruskal-Wallis chi-squared = 79.224, df = 5, p-value = 1.22e-15\n\n\nComment: The Kruskal-Wallis test result is fully consistent with the ANOVA findings. The extremely low p-value allows us to reject the null hypothesis of equal EURPLN exchange rate distributions across the analyzed months. This confirms that the previously observed differences are not an artifact of potential deviations from the normality assumption, but rather reflect real and statistically significant changes in the currency rate level during the second half of 2025. Mirroring the ANOVA results, the high chi-squared statistic indicates a strong influence of the time factor (month) on exchange rate volatility.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#data-preparation-and-retrieval",
+    "href": "lab4.html#data-preparation-and-retrieval",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "",
+    "text": "show/hide\n# Helper function to load data from stooq.pl\nread_rates &lt;- function(symbol, dateStart, dateEnd) {\n  if (file.exists(\".env\")) readRenviron(\".env\")\n  apiKey &lt;- Sys.getenv(\"STOOQ_API_KEY\")\n  \n  # Formatting dates to the YYYYMMDD format required by the stooq API\n  d1 &lt;- format(dateStart, \"%Y%m%d\")\n  d2 &lt;- format(dateEnd, \"%Y%m%d\")\n  \n  webLink &lt;- paste0('https://stooq.pl/q/d/l/?s=', symbol, \n                    '&i=d&d1=', d1, '&d2=', d2, '&apikey=', apiKey)\n  \n  fileName &lt;- paste0('data/', symbol, '_', d1, '_', d2, '.csv')\n  if (!file.exists(fileName)) {\n    download.file(webLink, fileName, quiet = TRUE)\n  }\n  \n  df_symbol &lt;- read.csv(fileName)\n  # Map Polish column headers to English for consistency\n  names(df_symbol)[names(df_symbol) == \"Data\"] &lt;- \"Date\"\n  names(df_symbol)[names(df_symbol) == \"Zamkniecie\"] &lt;- \"Close\"\n  df_symbol$Date &lt;- as.Date(df_symbol$Date)\n  \n  # Optional local filtering for certainty\n  df_symbol &lt;- df_symbol[which(df_symbol$Date &gt;= dateStart & df_symbol$Date &lt;= dateEnd),]\n  \n  df_symbol &lt;- subset(df_symbol, select = c(Date, Close))\n  names(df_symbol) &lt;- c('Date', symbol)\n  df_symbol\n}\n\n# Fetching data for EURPLN (July - December 2025)\ndateStart &lt;- as.Date(\"2025-07-01\")\ndateEnd &lt;- as.Date(\"2025-12-31\")\ndf_eur &lt;- read_rates('EURPLN', dateStart, dateEnd)\n\n# Data preparation - adding a column with the month number for grouping\ndf_eur$Month &lt;- format(df_eur$Date, \"%m\")",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#box-plots",
+    "href": "lab4.html#box-plots",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "",
+    "text": "show/hide\n# Box plots for individual months\nboxplot(EURPLN ~ Month, data = df_eur, \n        main = \"EURPLN exchange rate distribution in the 2nd half of 2025\",\n        xlab = \"Month\", ylab = \"Closing rate [PLN]\",\n        names = c(\"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"),\n        col = \"lightblue\")\ngrid()",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#analysis-of-variance-anova",
+    "href": "lab4.html#analysis-of-variance-anova",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "",
+    "text": "show/hide\n# Conducting the Analysis of Variance (ANOVA)\naov_res &lt;- aov(EURPLN ~ Month, data = df_eur)\nsummary(aov_res)\n\n\n             Df  Sum Sq  Mean Sq F value Pr(&gt;F)    \nMonth         5 0.02364 0.004728   51.27 &lt;2e-16 ***\nResiduals   125 0.01153 0.000092                   \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\n\nshow/hide\ntab_anova &lt;- summary(aov_res)[[1]]\np_raw &lt;- tab_anova[\"Month\", \"Pr(&gt;F)\"]\np_value &lt;- format.pval(p_raw, eps = 0.001, digits = 3)\n\n\nComment: The obtained p-value \\(Pr(&gt;F) &lt;0.001\\) is significantly smaller than the assumed significance level \\(\\alpha = 0.05\\). This provides a solid basis to reject the null hypothesis of equal mean EURPLN exchange rates in the analyzed months (July–December 2025). This result indicates that the mean exchange rates of the currency in the studied periods differed from one another in a statistically significant way. The extremely high F-statistic value confirms that the month is a factor that strongly differentiates the level of the closing exchange rate. To determine precisely which months differ from each other, a post-hoc analysis (e.g., Tukey’s test) must be conducted.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#post-hoc-analysis-tukey-and-bonferroni",
+    "href": "lab4.html#post-hoc-analysis-tukey-and-bonferroni",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "",
+    "text": "show/hide\n# Tukey's HSD method\ntukey_res &lt;- TukeyHSD(aov_res)\nprint(tukey_res)\n\n\n  Tukey multiple comparisons of means\n    95% family-wise confidence level\n\nFit: aov(formula = EURPLN ~ Month, data = df_eur)\n\n$Month\n              diff          lwr          upr     p adj\n08-07  0.004397660 -0.003990956  0.012786277 0.6537979\n09-07  0.002453202 -0.005835158  0.010741561 0.9558889\n10-07 -0.007185217 -0.015380966  0.001010531 0.1212538\n11-07 -0.018106435 -0.026603968 -0.009608902 0.0000001\n12-07 -0.033689526 -0.041977885 -0.025401167 0.0000000\n09-08 -0.001944459 -0.010423579  0.006534662 0.9855265\n10-08 -0.011582878 -0.019971494 -0.003194261 0.0014979\n11-08 -0.022504095 -0.031187796 -0.013820395 0.0000000\n12-08 -0.038087186 -0.046566307 -0.029608066 0.0000000\n10-09 -0.009638419 -0.017926778 -0.001350060 0.0127134\n11-09 -0.020559636 -0.029146526 -0.011972747 0.0000000\n12-09 -0.036142727 -0.044522673 -0.027762781 0.0000000\n11-10 -0.010921217 -0.019418751 -0.002423684 0.0039818\n12-10 -0.026504308 -0.034792667 -0.018215949 0.0000000\n12-11 -0.015583091 -0.024169980 -0.006996202 0.0000092\n\n\nshow/hide\nplot(tukey_res, las = 1)\n\n\n\n\n\n\n\n\n\nshow/hide\n# Bonferroni correction method\nbonf_res &lt;- pairwise.t.test(df_eur$EURPLN, df_eur$Month, p.adj = 'bonf')\nprint(bonf_res)\n\n\n\n    Pairwise comparisons using t tests with pooled SD \n\ndata:  df_eur$EURPLN and df_eur$Month \n\n   07      08      09      10      11     \n08 1.0000  -       -       -       -      \n09 1.0000  1.0000  -       -       -      \n10 0.1859  0.0016  0.0152  -       -      \n11 1.3e-07 1.5e-10 3.0e-09 0.0045  -      \n12 &lt; 2e-16 &lt; 2e-16 &lt; 2e-16 1.1e-14 9.4e-06\n\nP value adjustment method: bonferroni \n\n\nComment: The post-hoc analysis using Tukey’s and Bonferroni’s methods yields highly consistent results and allows for a precise identification of month pairs between which significant differences occurred. The tests confirm that the summer months (July, August, September) form a cluster with a similar exchange rate level (no significant differences, Bonferroni p-value equal to 1.000). Significant shifts begin in October (which differs significantly from August and September). In turn, November and December differ in a highly significant manner (p &lt; 0.001) from all preceding months. These findings, combined with the negative mean differences observed in Tukey’s test, clearly document a downward trend in the EURPLN rate (appreciation of the Polish złoty) across the entire studied half-year. Tukey’s plot visualizes this trend, as the majority of confidence intervals are shifted to the left of the zero line.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#kruskal-wallis-test-without-assuming-normality",
+    "href": "lab4.html#kruskal-wallis-test-without-assuming-normality",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "",
+    "text": "show/hide\n# Conducting the Kruskal-Wallis test\nkruskal_res &lt;- kruskal.test(EURPLN ~ Month, data = df_eur)\nprint(kruskal_res)\n\n\n\n    Kruskal-Wallis rank sum test\n\ndata:  EURPLN by Month\nKruskal-Wallis chi-squared = 79.224, df = 5, p-value = 1.22e-15\n\n\nComment: The Kruskal-Wallis test result is fully consistent with the ANOVA findings. The extremely low p-value allows us to reject the null hypothesis of equal EURPLN exchange rate distributions across the analyzed months. This confirms that the previously observed differences are not an artifact of potential deviations from the normality assumption, but rather reflect real and statistically significant changes in the currency rate level during the second half of 2025. Mirroring the ANOVA results, the high chi-squared statistic indicates a strong influence of the time factor (month) on exchange rate volatility.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#data-preparation-and-retrieval-1",
+    "href": "lab4.html#data-preparation-and-retrieval-1",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "2.1 Data Preparation and Retrieval",
+    "text": "2.1 Data Preparation and Retrieval\n\n\nshow/hide\n# Setting the date range for the first four months of 2026\ndateStart2 &lt;- as.Date(\"2026-01-01\")\ndateEnd2 &lt;- as.Date(\"2026-04-30\")\n\n# List of symbols to download\nsymbols &lt;- c('EURPLN', 'USDPLN', 'GBPPLN', 'AUDPLN', 'JPYPLN', 'KGH')\n\n# Fetching data using the previously defined read_rates function\ndata_list &lt;- lapply(symbols, function(s) read_rates(s, dateStart2, dateEnd2))\n\n# Merging all data frames into a single data frame by the Date column\ndf_reg &lt;- Reduce(function(x, y) merge(x, y, by = \"Date\"), data_list)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#linear-regression",
+    "href": "lab4.html#linear-regression",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "2.2 Linear Regression",
+    "text": "2.2 Linear Regression\n\n\nshow/hide\n# Model 1: Relationship of the EURPLN rate relative to other currencies\nmodel_eur &lt;- lm(EURPLN ~ USDPLN + GBPPLN + AUDPLN + JPYPLN, data = df_reg)\nsummary(model_eur)\n\n\n\nCall:\nlm(formula = EURPLN ~ USDPLN + GBPPLN + AUDPLN + JPYPLN, data = df_reg)\n\nResiduals:\n      Min        1Q    Median        3Q       Max \n-0.020873 -0.004665 -0.001045  0.004684  0.018486 \n\nCoefficients:\n            Estimate Std. Error t value Pr(&gt;|t|)    \n(Intercept)  2.24351    0.14581  15.387  &lt; 2e-16 ***\nUSDPLN       0.23745    0.02930   8.105 6.38e-12 ***\nGBPPLN       0.12323    0.04673   2.637   0.0101 *  \nAUDPLN       0.13492    0.01736   7.770 2.82e-11 ***\nJPYPLN       8.33776    4.20687   1.982   0.0511 .  \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\nResidual standard error: 0.00754 on 77 degrees of freedom\nMultiple R-squared:  0.9255,    Adjusted R-squared:  0.9217 \nF-statistic: 239.3 on 4 and 77 DF,  p-value: &lt; 2.2e-16\n\n\nshow/hide\n# Model 2: Relationship of the KGHM stock price relative to exchange rates\nmodel_kgh &lt;- lm(KGH ~ EURPLN + USDPLN + GBPPLN + AUDPLN + JPYPLN, data = df_reg)\nsummary(model_kgh)\n\n\n\nCall:\nlm(formula = KGH ~ EURPLN + USDPLN + GBPPLN + AUDPLN + JPYPLN, \n    data = df_reg)\n\nResiduals:\n    Min      1Q  Median      3Q     Max \n-32.195  -9.524   0.427   9.927  36.430 \n\nCoefficients:\n             Estimate Std. Error t value Pr(&gt;|t|)    \n(Intercept)   2044.94     573.95   3.563 0.000637 ***\nEURPLN        -168.55     222.23  -0.758 0.450519    \nUSDPLN        -267.93      77.77  -3.445 0.000932 ***\nGBPPLN          52.81      95.16   0.555 0.580513    \nAUDPLN          71.80      45.23   1.587 0.116558    \nJPYPLN      -21480.08    8410.28  -2.554 0.012650 *  \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\nResidual standard error: 14.7 on 76 degrees of freedom\nMultiple R-squared:  0.6445,    Adjusted R-squared:  0.6211 \nF-statistic: 27.56 on 5 and 76 DF,  p-value: 8.355e-16",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#significance-assessment-of-variables",
+    "href": "lab4.html#significance-assessment-of-variables",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "2.3 Significance Assessment of Variables",
+    "text": "2.3 Significance Assessment of Variables\nCommentary on the EURPLN Model: Based on the performed linear regression and the analysis of the \\(p\\)-values (Pr(&gt;|t|)) at the significance level of \\(\\alpha = 0.05\\), we can conclude that:\n\nThe variables that have a statistically significant effect on the EURPLN exchange rate are USDPLN (\\(p = 6.38 \\cdot 10^{-12}\\)), GBPPLN (\\(p = 0.0101\\)), and AUDPLN (\\(p = 2.82 \\cdot 10^{-11}\\)).\nThe JPYPLN exchange rate (\\(p = 0.0511\\)) lies on the verge of significance; however, under a strict assumption of \\(\\alpha = 0.05\\), we do not consider it a significant variable in this specific model.\nThe Adjusted Coefficient of Determination (\\(Adjusted R^2\\)) is 0.9217, meaning that the model explains 92.17% of the variance in the Euro exchange rate relative to the Polish złoty in the analyzed period, demonstrating an excellent model fit.\n\nCommentary on the KGH Model: Analysis of the regression model for KGHM stock indicates that:\n\nThe significant explanatory variables (\\(p &lt; 0.05\\)) for the KGHM stock price are USDPLN (\\(p = 0.000932\\)) and JPYPLN (\\(p = 0.012650\\)).\nFor the US Dollar, a negative impact on the company’s valuation was observed (Estimate coefficient \\(\\approx -267.93\\)). This indicates that an increase in the USDPLN rate (depreciation of the Polish złoty against the Dollar) is statistically associated with a decline in KGHM stock prices during the analyzed period.\nOther currencies, including the EURPLN rate (\\(p = 0.4505\\)), do not show any statistically significant impact on the company’s stock price.\nThe Adjusted Coefficient of Determination (\\(Adjusted R^2\\)) of 0.6211 suggests a moderate fit of the model—currency factors explain approximately 62% of the variance in the KGHM price. This suggests a strong influence of non-currency factors, such as global copper prices or general stock market sentiment.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#linear-regression-plot",
+    "href": "lab4.html#linear-regression-plot",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "3.1 Linear Regression Plot",
+    "text": "3.1 Linear Regression Plot\n\n\nshow/hide\n# Loading data\nsales &lt;- read.csv(\"data/sprzedaz.txt\")\n\n# Linear regression model\nlin_model &lt;- lm(Income ~ Advert, data = sales)\n\n# Scatter plot with regression line\nplot(sales$Advert, sales$Income, \n     xlab = \"Advertising expenses [thousand PLN]\", \n     ylab = \"Sales value [million PLN]\", \n     main = \"Relationship between Sales and Advertising Expenses\",\n     pch = 19, col = \"blue\")\nabline(lin_model, col = \"red\", lwd = 2)\nlegend(\"topleft\", legend = \"Regression line\", col = \"red\", lwd = 2)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#forecasting-and-prediction-error-300-500-700-thousand-pln",
+    "href": "lab4.html#forecasting-and-prediction-error-300-500-700-thousand-pln",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "3.2 Forecasting and Prediction Error (300, 500, 700 thousand PLN)",
+    "text": "3.2 Forecasting and Prediction Error (300, 500, 700 thousand PLN)\n\n\nshow/hide\nnew_data &lt;- data.frame(Advert = c(300, 500, 700))\nlin_pred &lt;- predict(lin_model, newdata = new_data, se.fit = TRUE)\n\n# Calculating the standard deviation of the prediction error for an individual observation\n# Prediction error accounts for the mean estimation error and the residual variance\nse_pred_error &lt;- sqrt(lin_pred$se.fit^2 + lin_pred$residual.scale^2)\n\n# Compiling the forecast results\nforecast_results &lt;- data.frame(\n  Advertising_Expenses = new_data$Advert,\n  Forecasted_Sales = lin_pred$fit,\n  Prediction_Error_Estimate = se_pred_error\n)\nprint(forecast_results)\n\n\n  Advertising_Expenses Forecasted_Sales Prediction_Error_Estimate\n1                  300         9.574201                 0.6388024\n2                  500        12.502700                 0.6250514\n3                  700        15.431199                 0.6768939",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#quadratic-model-and-statistical-verification",
+    "href": "lab4.html#quadratic-model-and-statistical-verification",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "3.3 Quadratic Model and Statistical Verification",
+    "text": "3.3 Quadratic Model and Statistical Verification\n\n\nshow/hide\nquad_model &lt;- lm(Income ~ Advert + I(Advert^2), data = sales)\n\n# 1. Comparison of R^2 and Adjusted R^2\nsum_lin &lt;- summary(lin_model)\nsum_quad &lt;- summary(quad_model)\n\nr2_lin &lt;- sum_lin$r.squared\nr2_adj_lin &lt;- sum_lin$adj.r.squared\n\nr2_quad &lt;- sum_quad$r.squared\nr2_adj_quad &lt;- sum_quad$adj.r.squared\n\n# 2. ANOVA Test - checking if the addition of the quadratic term is significant\ntest_anova &lt;- anova(lin_model, quad_model)\np_value_anova &lt;- test_anova$\"Pr(&gt;F)\"[2]\n\n# Displaying the comparison results\nstat_comparison &lt;- data.frame(\n  Model = c(\"Linear\", \"Quadratic\"),\n  R_Squared = c(r2_lin, r2_quad),\n  Adj_R_Squared = c(r2_adj_lin, r2_adj_quad)\n)\nprint(stat_comparison)\n\n\n      Model R_Squared Adj_R_Squared\n1    Linear 0.9140610     0.9095379\n2 Quadratic 0.9326505     0.9251672\n\n\nshow/hide\ncat(\"\\nANOVA test result (p-value for change):\", p_value_anova)\n\n\n\nANOVA test result (p-value for change): 0.03879825\n\n\nshow/hide\n# 3. Comparative plot\nplot(sales$Advert, sales$Income, \n     xlab = \"Advertising expenses [thousand PLN]\", \n     ylab = \"Sales value [million PLN]\", \n     main = \"Comparison of Linear and Quadratic Models\",\n     pch = 19, col = \"blue\")\nabline(lin_model, col = \"red\", lwd = 2)\n\n# Adding the quadratic model curve\nx_grid &lt;- seq(min(sales$Advert), max(sales$Advert), length.out = 100)\ny_quad &lt;- predict(quad_model, newdata = data.frame(Advert = x_grid))\nlines(x_grid, y_quad, col = \"darkgreen\", lwd = 2)\n\nlegend(\"topleft\", \n       legend = c(\"Data\", \"Linear Regression\", \"Quadratic Regression\"), \n       col = c(\"blue\", \"red\", \"darkgreen\"), \n       pch = c(19, NA, NA), \n       lwd = c(NA, 2, 2))",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab4.html#conclusions-and-analysis",
+    "href": "lab4.html#conclusions-and-analysis",
+    "title": "Regression Models and Analysis of Variance",
+    "section": "3.4 Conclusions and Analysis",
+    "text": "3.4 Conclusions and Analysis\nForecasted Sales Values: Based on the linear model, the following sales forecasts (in millions of PLN) were determined for the given advertising expenses (in thousands of PLN): - For expenses of 300 thousand PLN: the forecast is 9.57 million PLN (standard deviation of the prediction error: 0.64).\n- For expenses of 500 thousand PLN: the forecast is 12.5 million PLN (standard deviation of the prediction error: 0.63).\n- For expenses of 700 thousand PLN: the forecast is 15.43 million PLN (standard deviation of the prediction error: 0.68).\nComparison and Model Selection:\nTo eliminate the risk of overfitting and confirm the validity of the model selection, an in-depth analysis was conducted:\n\nAdjusted Coefficient of Determination (\\(R^2\\)): An increase was observed from 0.9095 (linear model) to 0.9252 (quadratic model). Since the adjusted coefficient accounts for the number of parameters, its increase unambiguously confirms that the non-linear model describes the data structure better, rather than merely fitting the noise.\nANOVA Test: Comparing both models with an F-test revealed a significant difference (\\(p = 0.0388\\)). Since the \\(p\\)-value is substantially smaller than the adopted significance level of 0.05, we reject the hypothesis that the linear model is sufficient.\nVisual Conclusions: The plot confirms that the linear regression line (red) systematically deviates from the data at extreme levels of advertising expenses, whereas the quadratic curve (green) naturally tracks the slight arc formed by the data points.\n\nSummary: All applied statistical criteria confirm that the quadratic model is more adequate and statistically justified. The higher precision of this model stems from the non-linear nature of the relationship between advertising and sales in this specific dataset.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Regression models and ANOVA"
+    ]
+  },
+  {
+    "objectID": "lab1.html",
+    "href": "lab1.html",
+    "title": "Data exploration and visualization",
+    "section": "",
+    "text": "For data from the last 15 months concerning two selected listed companies:\n- create charts of the percentage changes of closing prices against the date,\n- plot and compare histograms of the percentage changes of closing prices, and add density lines for normal distributions with parameters derived from the data to the charts,\n- create one joint figure with box plots of the closing price changes.\n\n\n\n\nshow/hide\nticker1 &lt;- \"CDR\"\nticker2 &lt;- \"PZU\"\ncutoff_date &lt;- seq(Sys.Date(), length = 2, by = \"-15 months\")[2]\n\nif (file.exists(\".env\")) readRenviron(\".env\")\napikey &lt;- Sys.getenv(\"STOOQ_API_KEY\")\n\ndownload_data &lt;- function(ticker) {\n  url &lt;- paste0('https://stooq.pl/q/d/l/?s=', ticker, '&i=d', '&apikey=', apikey)\n\n  file_path &lt;- paste0(\"data/\", ticker, \".csv\")\n  if (!file.exists(file_path)) {\n    download.file(url, file_path, quiet = TRUE)\n  }\n  \n  data &lt;- read.csv(file_path)\n  data$Data &lt;- as.Date(data$Data)\n\n  data &lt;- data[data$Data &gt;= cutoff_date, ]\n  data &lt;- data[order(data$Data), ]\n  \n  n &lt;- nrow(data)\n  data$PctChange &lt;- c(NA, diff(data$Zamkniecie) / data$Zamkniecie[-n] * 100)\n  \n  data &lt;- data[!is.na(data$PctChange), c(\"Data\", \"PctChange\")]\n  data$Ticker &lt;- ticker\n  return(data)\n}\n\ndf1 &lt;- download_data(ticker1)\ndf2 &lt;- download_data(ticker2)\n\n\n\n\n\n\n\nshow/hide\nplot(df1$Data, df1$PctChange, type = \"l\", col = \"blue\", \n     main = paste(\"Percentage changes:\", ticker1),\n     xlab = \"Date: last 15 months\", \n     ylab = \"Closing price change (%)\")\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nshow/hide\nplot(df2$Data, df2$PctChange, type = \"l\", col = \"red\", \n     main = paste(\"Percentage changes:\", ticker2),\n     xlab = \"Date: last 15 months\", \n     ylab = \"Closing price change (%)\")\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nshow/hide\nhist(df1$PctChange, breaks = 30, freq = FALSE, \n     col = \"lightblue\",\n     main = paste(\"Histogram:\", ticker1), \n     xlab = \"Closing price change (%)\", ylab = \"Frequency\")\ncurve(dnorm(x, mean = mean(df1$PctChange), sd = sd(df1$PctChange)), \n      add = TRUE, col = \"darkred\", lwd = 2)\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nshow/hide\nhist(df2$PctChange, breaks = 30, freq = FALSE,\n     col = \"mistyrose\",\n     main = paste(\"Histogram:\", ticker2),\n     xlab = \"Closing price change (%)\", ylab = \"Frequency\")\ncurve(dnorm(x, mean = mean(df2$PctChange), sd = sd(df2$PctChange)), \n      add = TRUE, col = \"darkred\", lwd = 2)\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nshow/hide\nboxplot(df1$PctChange, df2$PctChange, \n        names = c(ticker1, ticker2),\n        col = c(\"lightblue\", \"mistyrose\"),\n        main = \"Daily volatility comparison\",\n        ylab = \"Closing price change (%)\")\n\n\n\n\n\n\n\n\n\nAnalyzing the data of the daily percentage change of the closing price, differences in the range of these changes can be observed. CDR shares proved to be more volatile in the studied period than PZU shares, which is a fairly obvious observation considering the nature of both companies. The normal distribution, in the case of analyzing daily volatility, provides useful information which is the general level of volatility of a given instrument in the studied period, but it does not reflect “unrealized” risk by underestimating extreme events.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#data-preparation",
+    "href": "lab1.html#data-preparation",
+    "title": "Data exploration and visualization",
+    "section": "",
+    "text": "show/hide\nticker1 &lt;- \"CDR\"\nticker2 &lt;- \"PZU\"\ncutoff_date &lt;- seq(Sys.Date(), length = 2, by = \"-15 months\")[2]\n\nif (file.exists(\".env\")) readRenviron(\".env\")\napikey &lt;- Sys.getenv(\"STOOQ_API_KEY\")\n\ndownload_data &lt;- function(ticker) {\n  url &lt;- paste0('https://stooq.pl/q/d/l/?s=', ticker, '&i=d', '&apikey=', apikey)\n\n  file_path &lt;- paste0(\"data/\", ticker, \".csv\")\n  if (!file.exists(file_path)) {\n    download.file(url, file_path, quiet = TRUE)\n  }\n  \n  data &lt;- read.csv(file_path)\n  data$Data &lt;- as.Date(data$Data)\n\n  data &lt;- data[data$Data &gt;= cutoff_date, ]\n  data &lt;- data[order(data$Data), ]\n  \n  n &lt;- nrow(data)\n  data$PctChange &lt;- c(NA, diff(data$Zamkniecie) / data$Zamkniecie[-n] * 100)\n  \n  data &lt;- data[!is.na(data$PctChange), c(\"Data\", \"PctChange\")]\n  data$Ticker &lt;- ticker\n  return(data)\n}\n\ndf1 &lt;- download_data(ticker1)\ndf2 &lt;- download_data(ticker2)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-1a-price-over-time-cdr",
+    "href": "lab1.html#chart-1a-price-over-time-cdr",
+    "title": "Data exploration and visualization",
+    "section": "",
+    "text": "show/hide\nplot(df1$Data, df1$PctChange, type = \"l\", col = \"blue\", \n     main = paste(\"Percentage changes:\", ticker1),\n     xlab = \"Date: last 15 months\", \n     ylab = \"Closing price change (%)\")",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-1b-price-over-time-pzu",
+    "href": "lab1.html#chart-1b-price-over-time-pzu",
+    "title": "Data exploration and visualization",
+    "section": "",
+    "text": "show/hide\nplot(df2$Data, df2$PctChange, type = \"l\", col = \"red\", \n     main = paste(\"Percentage changes:\", ticker2),\n     xlab = \"Date: last 15 months\", \n     ylab = \"Closing price change (%)\")",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-2a-histograms-and-normal-distribution-cdr",
+    "href": "lab1.html#chart-2a-histograms-and-normal-distribution-cdr",
+    "title": "Data exploration and visualization",
+    "section": "",
+    "text": "show/hide\nhist(df1$PctChange, breaks = 30, freq = FALSE, \n     col = \"lightblue\",\n     main = paste(\"Histogram:\", ticker1), \n     xlab = \"Closing price change (%)\", ylab = \"Frequency\")\ncurve(dnorm(x, mean = mean(df1$PctChange), sd = sd(df1$PctChange)), \n      add = TRUE, col = \"darkred\", lwd = 2)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-2b-histograms-and-normal-distribution-pzu",
+    "href": "lab1.html#chart-2b-histograms-and-normal-distribution-pzu",
+    "title": "Data exploration and visualization",
+    "section": "",
+    "text": "show/hide\nhist(df2$PctChange, breaks = 30, freq = FALSE,\n     col = \"mistyrose\",\n     main = paste(\"Histogram:\", ticker2),\n     xlab = \"Closing price change (%)\", ylab = \"Frequency\")\ncurve(dnorm(x, mean = mean(df2$PctChange), sd = sd(df2$PctChange)), \n      add = TRUE, col = \"darkred\", lwd = 2)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-3-volatility-comparison-box-plot",
+    "href": "lab1.html#chart-3-volatility-comparison-box-plot",
+    "title": "Data exploration and visualization",
+    "section": "",
+    "text": "show/hide\nboxplot(df1$PctChange, df2$PctChange, \n        names = c(ticker1, ticker2),\n        col = c(\"lightblue\", \"mistyrose\"),\n        main = \"Daily volatility comparison\",\n        ylab = \"Closing price change (%)\")\n\n\n\n\n\n\n\n\n\nAnalyzing the data of the daily percentage change of the closing price, differences in the range of these changes can be observed. CDR shares proved to be more volatile in the studied period than PZU shares, which is a fairly obvious observation considering the nature of both companies. The normal distribution, in the case of analyzing daily volatility, provides useful information which is the general level of volatility of a given instrument in the studied period, but it does not reflect “unrealized” risk by underestimating extreme events.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#conversion-date",
+    "href": "lab1.html#conversion-date",
+    "title": "Data exploration and visualization",
+    "section": "2.1 Conversion: date",
+    "text": "2.1 Conversion: date\n\n\nshow/hide\ncrashes$DateObj = as.Date(crashes$Date, format='%m/%d/%Y')",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#conversion-date-components",
+    "href": "lab1.html#conversion-date-components",
+    "title": "Data exploration and visualization",
+    "section": "2.2 Conversion: date components",
+    "text": "2.2 Conversion: date components\n\n\nshow/hide\ncrashes$Year = as.numeric(format(crashes$DateObj, '%Y'))\ncrashes$Month = factor(format(crashes$DateObj, '%m'))\ncrashes$Day = as.numeric(format(crashes$DateObj, '%d'))\n\ncrashes$WeekdayNum = as.numeric(format(crashes$DateObj, \"%u\"))\n\ncrashes$Weekday = factor(crashes$WeekdayNum, \n                         levels = 1:7, \n                         labels = c(\"Mon\", \"Tue\", \"Wed\", \"Thu\", \"Fri\", \"Sat\", \"Sun\"))",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#aggregation-month",
+    "href": "lab1.html#aggregation-month",
+    "title": "Data exploration and visualization",
+    "section": "2.3 Aggregation: month",
+    "text": "2.3 Aggregation: month\n\n\nshow/hide\nmonth_table = table(crashes$Month)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-1-number-of-crashes-in-individual-months-of-the-year",
+    "href": "lab1.html#chart-1-number-of-crashes-in-individual-months-of-the-year",
+    "title": "Data exploration and visualization",
+    "section": "2.4 Chart 1: Number of crashes in individual months of the year",
+    "text": "2.4 Chart 1: Number of crashes in individual months of the year\nMonths that have 31 days will be burdened with an additional error resulting from the fact that there are more accidents the more days there are in a given time interval.\nThis could “more” emphasize the “danger” of a month with 31 days (and underestimate it in the case of 28 days).\n\n\nshow/hide\nbarplot(month_table, \n        main = \"Number of air crashes in individual months\",\n        col = \"blue\", \n        xlab = \"Month\", \n        ylab = \"Number of crashes\")",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#aggregation-day-of-the-month",
+    "href": "lab1.html#aggregation-day-of-the-month",
+    "title": "Data exploration and visualization",
+    "section": "2.5 Aggregation: day of the month",
+    "text": "2.5 Aggregation: day of the month\n\n\nshow/hide\nday_table = table(crashes$Day)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-2-number-of-crashes-on-individual-days-of-the-month-1-31",
+    "href": "lab1.html#chart-2-number-of-crashes-on-individual-days-of-the-month-1-31",
+    "title": "Data exploration and visualization",
+    "section": "2.6 Chart 2: Number of crashes on individual days of the month (1-31)",
+    "text": "2.6 Chart 2: Number of crashes on individual days of the month (1-31)\nIn this step, it should be emphasized that the 31st day of the month is unrepresentative because there are ~ half as many 31st days of the month as other days on an annual scale.\n\n\nshow/hide\nbarplot(day_table, \n        main = \"Number of crashes by day of the month (1-31)\",\n        col = \"yellow\", \n        xlab = \"Day of the month\", \n        ylab = \"Number of crashes\")",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#aggregation-day-of-the-week",
+    "href": "lab1.html#aggregation-day-of-the-week",
+    "title": "Data exploration and visualization",
+    "section": "2.7 Aggregation: day of the week",
+    "text": "2.7 Aggregation: day of the week\n\n\nshow/hide\nday_table = table(crashes$Weekday)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-3-number-of-crashes-on-individual-days-of-the-week-1-7",
+    "href": "lab1.html#chart-3-number-of-crashes-on-individual-days-of-the-week-1-7",
+    "title": "Data exploration and visualization",
+    "section": "2.8 Chart 3: Number of crashes on individual days of the week (1-7)",
+    "text": "2.8 Chart 3: Number of crashes on individual days of the week (1-7)\n\n\nshow/hide\nbarplot(day_table, \n        main = \"Number of crashes by day of the week (1-7)\",\n        col = \"red\", \n        xlab = \"Day of the week\", \n        ylab = \"Number of crashes\")",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#calculations",
+    "href": "lab1.html#calculations",
+    "title": "Data exploration and visualization",
+    "section": "2.9 Calculations",
+    "text": "2.9 Calculations\n\n\nshow/hide\ncrashes$Survivors = crashes$Aboard - crashes$Fatalities\n\ndata_per_year = aggregate(cbind(Survivors, Aboard) ~ Year, data = crashes, sum)\n\ndata_per_year$SurvivalRate = (data_per_year$Survivors / data_per_year$Aboard) * 100",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-1-number-of-survivors",
+    "href": "lab1.html#chart-1-number-of-survivors",
+    "title": "Data exploration and visualization",
+    "section": "2.10 Chart 1: Number of survivors",
+    "text": "2.10 Chart 1: Number of survivors\n\n\nshow/hide\nplot(data_per_year$Year, data_per_year$Survivors,\n     type = \"h\",\n     col = \"blue\",\n     main = \"Number of survivors of crashes (subsequent years)\",\n     xlab = \"Year\",\n     ylab = \"Number of survivors\")",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#chart-2-percentage-of-survivors",
+    "href": "lab1.html#chart-2-percentage-of-survivors",
+    "title": "Data exploration and visualization",
+    "section": "2.11 Chart 2: Percentage of survivors",
+    "text": "2.11 Chart 2: Percentage of survivors\n\n\nshow/hide\nplot(data_per_year$Year, data_per_year$SurvivalRate,\n     type = \"h\",\n     col = \"darkgreen\",\n     main = \"Percentage of survivors (%)\",\n     xlab = \"Year\",\n     ylab = \"Percentage (%)\")",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#data-generation",
+    "href": "lab1.html#data-generation",
+    "title": "Data exploration and visualization",
+    "section": "3.1 Data generation",
+    "text": "3.1 Data generation\n\n\nshow/hide\nn &lt;- 25\nM &lt;- 1000\nx_range &lt;- 0:25\n\nset.seed(42)\nsample1 &lt;- rbinom(M, size = n, prob = 0.2)\nsample2 &lt;- rbinom(M, size = n, prob = 0.8)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#distribution-binom25-0.2",
+    "href": "lab1.html#distribution-binom25-0.2",
+    "title": "Data exploration and visualization",
+    "section": "3.2 Distribution: Binom(25, 0.2)",
+    "text": "3.2 Distribution: Binom(25, 0.2)\n\n3.2.1 Chart for generated values\n\n\nshow/hide\nplot(sample1,\n     main = \"Values of Binom(25, 0.2)\", \n     xlab = \"Index\", ylab = \"Value\",\n     col = \"blue\")\n\n\n\n\n\n\n\n\n\n\n\n3.2.2 Probability function (empirical vs theoretical)\n\n\nshow/hide\nempirical_sample1 &lt;- table(factor(sample1, levels = x_range)) / M\ntheoretical_sample1 &lt;- dbinom(x_range, size = n, prob = 0.2)\n\n\n\n\nshow/hide\nplot(x_range, theoretical_sample1, type = \"h\", lwd = 2, \n     col = \"blue\", \n     main = \"Probability Binom(25, 0.2)\", \n     xlab = \"k\", ylab = \"P(X=k)\")\npoints(x_range, empirical_sample1, col = \"red\", pch = 16)\nlegend(\"topright\", \n       legend = c(\"Theoretical\", \"Empirical\"), \n       col = c(\"blue\", \"red\"), \n       lwd = c(2, NA), \n       pch = c(NA, 16))\n\n\n\n\n\n\n\n\n\n\n\n3.2.3 Cumulative distribution function (empirical vs theoretical)\n\n\nshow/hide\nplot(x_range, pbinom(x_range, size = n, prob = 0.2), \n     type = \"s\", lwd = 2, col = \"blue\",\n     main = \"Cumulative distribution function Binom(25, 0.2)\", \n     xlab = \"x\", ylab = \"F(x)\")\nlines(ecdf(sample1), col = \"red\", verticals = TRUE, do.points = FALSE)\nlegend(\"bottomright\", \n       legend = c(\"Theoretical\", \"Empirical\"), \n       col = c(\"blue\", \"red\"), lwd = 2)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#distribution-binom25-0.8",
+    "href": "lab1.html#distribution-binom25-0.8",
+    "title": "Data exploration and visualization",
+    "section": "3.3 Distribution: Binom(25, 0.8)",
+    "text": "3.3 Distribution: Binom(25, 0.8)\n\n3.3.1 Chart for generated values\n\n\nshow/hide\nplot(sample2, main = \"Values of Binom(25, 0.8)\",\n     xlab = \"Index\", \n     ylab = \"Value\", \n     col = \"darkgreen\")\n\n\n\n\n\n\n\n\n\n\n\n3.3.2 Probability function (empirical vs theoretical)\n\n\nshow/hide\nempirical_sample2 &lt;- table(factor(sample2, levels = x_range)) / M\ntheoretical_sample2 &lt;- dbinom(x_range, size = n, prob = 0.8)\n\n\n\n\nshow/hide\nplot(x_range, theoretical_sample2, type = \"h\", lwd = 2, \n     col = \"darkgreen\", \n     main = \"Probability Binom(25, 0.8)\", \n     xlab = \"k\", ylab = \"P(X=k)\")\npoints(x_range, empirical_sample2, col = \"red\", pch = 16)\nlegend(\"topleft\", \n       legend = c(\"Theoretical\", \"Empirical\"), \n       col = c(\"darkgreen\", \"red\"), \n       lwd = c(2, NA), pch = c(NA, 16))\n\n\n\n\n\n\n\n\n\n\n\n3.3.3 Cumulative distribution function (empirical vs theoretical)\n\n\nshow/hide\nplot(x_range, pbinom(x_range, size = n, prob = 0.8), \n     type = \"s\", lwd = 2, col = \"darkgreen\", \n     main = \"Cumulative distribution function Binom(25, 0.8)\",\n     xlab = \"x\", ylab = \"F(x)\")\nlines(ecdf(sample2), col = \"red\",\n      verticals = TRUE, do.points = FALSE)\nlegend(\"bottomright\", \n       legend = c(\"Theoretical\", \"Empirical\"), \n       col = c(\"darkgreen\", \"red\"), lwd = 2)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#generating-random-samples",
+    "href": "lab1.html#generating-random-samples",
+    "title": "Data exploration and visualization",
+    "section": "4.1 Generating random samples",
+    "text": "4.1 Generating random samples\n\n\nshow/hide\nsample_100 &lt;- rbinom(M_1, n, p)\nsample_1000 &lt;- rbinom(M_2, n, p)\nsample_10000 &lt;- rbinom(M_3, n, p)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#function-charts-probability-and-cumulative-distribution-empirical-and-theoretical",
+    "href": "lab1.html#function-charts-probability-and-cumulative-distribution-empirical-and-theoretical",
+    "title": "Data exploration and visualization",
+    "section": "4.2 Function charts: probability and cumulative distribution (empirical and theoretical)",
+    "text": "4.2 Function charts: probability and cumulative distribution (empirical and theoretical)\n\n\nshow/hide\ntheoretical_prob_mass_func &lt;- dbinom(x_range, n, p)\ntheoretical_cum_dist_func &lt;- pbinom(x_range, n, p)\n\n\n\n4.2.1 For M = 100\n\n\nshow/hide\nemp_pmf_100 &lt;- table(factor(sample_100, levels = x_range)) / M_1\n\n\n\n\nshow/hide\nplot(x_range, theoretical_prob_mass_func, \n     type = \"h\", lwd = 2, col = \"blue\", \n     main = \"Probability function (M=100)\", \n     xlab = \"k\", ylab = \"P\")\npoints(x_range, as.numeric(emp_pmf_100), \n       col = \"red\", pch = 16)\nlegend(\"topright\", \n       legend = c(\"Theoretical\", \"Empirical\"),\n       col = c(\"blue\", \"red\"), lwd = 2)\n\n\n\n\n\n\n\n\n\n\n\nshow/hide\nplot(x_range, theoretical_cum_dist_func, type = \"s\", \n     lwd = 2, col = \"blue\", \n     main = \"Cumulative distribution function (M=100)\", \n     xlab = \"x\", ylab = \"F\")\nlines(ecdf(sample_100), col = \"red\", \n      verticals = TRUE, do.points = FALSE)\nlegend(\"bottomright\", \n       legend = c(\"Theoretical\", \"Empirical\"), \n       col = c(\"blue\", \"red\"), lwd = 2)\n\n\n\n\n\n\n\n\n\n\n\n4.2.2 For M = 1000\n\n\nshow/hide\nemp_pmf_1000 &lt;- table(factor(sample_1000, levels = x_range)) / M_2\n\n\n\n\nshow/hide\nplot(x_range, theoretical_prob_mass_func, type = \"h\", \n     lwd = 2, col = \"blue\", \n     main = \"Probability function (M=1000)\", \n     xlab = \"k\", ylab = \"P\")\npoints(x_range, as.numeric(emp_pmf_1000), col = \"red\", pch = 16)\nlegend(\"topright\", legend = c(\"Theoretical\", \"Empirical\"), \n       col = c(\"blue\", \"red\"), lwd = 2)\n\n\n\n\n\n\n\n\n\n\n\nshow/hide\nplot(x_range, theoretical_cum_dist_func, type = \"s\", \n     lwd = 2, col = \"blue\", \n     main = \"Cumulative distribution function (M=1000)\", \n     xlab = \"x\", ylab = \"F\")\nlines(ecdf(sample_1000), col = \"red\", \n      verticals = TRUE, do.points = FALSE)\nlegend(\"bottomright\", \n       legend = c(\"Theoretical\", \"Empirical\"), \n       col = c(\"blue\", \"red\"), lwd = 2)\n\n\n\n\n\n\n\n\n\n\n\n4.2.3 For M = 10000\n\n\nshow/hide\nemp_pmf_10000 &lt;- table(factor(sample_10000, levels = x_range)) / M_3\n\n\n\n\nshow/hide\nplot(x_range, theoretical_prob_mass_func, type = \"h\", \n     lwd = 2, col = \"blue\",\n     main = \"Probability function (M=10000)\", \n     xlab = \"k\", ylab = \"P\")\npoints(x_range, as.numeric(emp_pmf_10000), \n       col = \"red\", pch = 16)\nlegend(\"topright\", legend = c(\"Theoretical\", \"Empirical\"), \n       col = c(\"blue\", \"red\"), lwd = 2)\n\n\n\n\n\n\n\n\n\n\n\nshow/hide\nplot(x_range, theoretical_cum_dist_func, type = \"s\", \n     lwd = 2, col = \"blue\",\n     main = \"Cumulative distribution function (M=10000)\", \n     xlab = \"x\", ylab = \"F\")\nlines(ecdf(sample_10000), col = \"red\", \n      verticals = TRUE, do.points = FALSE)\nlegend(\"bottomright\", legend = c(\"Theoretical\", \"Empirical\"), \n       col = c(\"blue\", \"red\"), lwd = 2)",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab1.html#calculating-and-comparing-parameters",
+    "href": "lab1.html#calculating-and-comparing-parameters",
+    "title": "Data exploration and visualization",
+    "section": "4.3 Calculating and comparing parameters",
+    "text": "4.3 Calculating and comparing parameters\n\n\nshow/hide\n# Theoretical values\ntheo_mean &lt;- n * p\ntheo_var  &lt;- n * p * (1 - p)\n\n# Empirical values\nmean_100 &lt;- mean(sample_100)\nvar_100  &lt;- var(sample_100)\n\nmean_1000 &lt;- mean(sample_1000)\nvar_1000  &lt;- var(sample_1000)\n\nmean_10000 &lt;- mean(sample_10000)\nvar_10000  &lt;- var(sample_10000)\n\nresult_table &lt;- data.frame(\n  \"Type\" = c(\"Theory\", \"M = 100\", \"M = 1000\", \"M = 10000\"),\n  \"Mean\" = c(theo_mean, mean_100, mean_1000, mean_10000),\n  \"Variance\" = c(theo_var, var_100, var_1000, var_10000)\n)\n\nresult_table\n\n\n       Type   Mean Variance\n1    Theory 5.0000 4.000000\n2   M = 100 5.1400 4.747879\n3  M = 1000 4.8790 4.030389\n4 M = 10000 5.0092 4.084924\n\n\nBased on the table above, it can be observed that as the sample size increases, the empirical mean and variance tend toward the theoretical mean and variance. It should be assumed that a larger sample size will allow for more accurate calculations.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Data exploration and visualization"
+    ]
+  },
+  {
+    "objectID": "lab2.html",
+    "href": "lab2.html",
+    "title": "Parameter Estimation and Probability Distributions",
+    "section": "",
+    "text": "1 Modeling Traffic Flow Intensity\nThe Poisson distribution is frequently used to model traffic flow (with low intensity). The file skrety.txt contains the number of vehicles turning right at a certain intersection within three hundred 3-minute time intervals (the data were collected at different times of the day).\n\nLoad the data using the command scan(‘skrety.txt’).\n\nFit a Poisson distribution to the data, i.e., estimate the parameter \\(\\lambda\\) of the Poisson distribution, and record its value in the report.\n\nVerify and describe the consistency of the distribution with the estimated parameter \\(\\lambda\\) against the registered data by graphically comparing the empirical and theoretical probability functions. Use the table() and dpois() functions analogously to Example 4 in Project 1.\n\nUse the non-parametric bootstrap method to estimate the standard deviation of the estimator of the parameter \\(\\lambda\\), and record its value in the report.\n\n\n\nshow/hide\n# 1. Data loading\ntraffic_data &lt;- scan('data/skrety.txt')\n\n# 2. Estimation of the lambda parameter (sample arithmetic mean)\n# - represents both the expected value and variance\nlambda_est &lt;- mean(traffic_data)\n\n# 3. Graphical consistency; empirical vs theoretical\n# Empirical frequency (percentage share of each number of cars)\nempirical_table &lt;- table(traffic_data) / length(traffic_data)\n\n# Preparing the range\nx_axis &lt;- 0:max(traffic_data)\n\n# Theoretical probability from the Poisson distribution\ntheoretical_prob &lt;- dpois(x_axis, lambda = lambda_est)\n\n# Comparative plot\nplot(empirical_table, type = \"h\", lwd = 2, col = \"blue\", \n     main = \"Empirical vs Theoretical Probability Mass Function\",\n     xlab = \"Number of vehicles\", ylab = \"Probability\")\npoints(x_axis, theoretical_prob, col = \"red\", pch = 16)\nlines(x_axis, theoretical_prob, col = \"red\", lty = 2)\nlegend(\"topright\", legend = c(\"Empirical\", \"Theoretical (Poisson)\"), \n       col = c(\"blue\", \"red\"), lty = c(1, 2), pch = c(NA, 16))\n\n\n\n\n\n\n\n\n\nshow/hide\n# 4. Non-parametric bootstrap (resampling with replacement directly from the dataset)\nB &lt;- 1000\nboot_lambdas &lt;- replicate(B, mean(sample(traffic_data, replace = TRUE)))\nsd_boot &lt;- sd(boot_lambdas)\n\n\n\nEstimated parameter lambda (lambda_est) for the Poisson distribution = 3.793\nStandard deviation of the estimator (sd_boot) = 0.129\n\nConclusions: Using the non-parametric bootstrap method with B = 1000 replications, the standard error of the lambda estimator (\\(\\lambda\\)) was determined. The obtained value of approximately 0.129 indicates a high precision of estimation given the sample size n = 300. This means that 300 time intervals constitute a sufficiently large sample to trust the result.\n\n\n\n2 Analysis of Rates of Return for KGHM\n\nFor one selected company listed on the Warsaw Stock Exchange (GPW), calculate the percentage changes of the highest daily prices (Najwyzszy) over the last year and plot their histogram.\n\nEstimate the mean and variance of the percentage changes of the highest prices for the selected company, and record these values in the report.\n\nBased on the histogram and the probability density function plot determined for the estimated parameters (mean and variance), roughly verify whether we can assume that the percentage changes of the highest daily prices follow a normal distribution.\n\nAssuming that the changes of the highest daily prices follow a normal distribution, determine the 90%, 95%, and 99% confidence intervals for the mean and variance of the percentage changes of the highest daily prices for the selected company. Compare the results obtained for different confidence intervals.\n\nDownloading and preparing data for KGHM:\n\n\nshow/hide\nTicker &lt;- 'KGH'\n\nif (file.exists(\".env\")) readRenviron(\".env\")\napikey &lt;- Sys.getenv(\"STOOQ_API_KEY\")\n\nwebLink &lt;- paste0('https://stooq.pl/q/d/l/?s=', Ticker, \n                 '&i=d', '&apikey=', apikey)\nfile_path &lt;- paste0(\"data/\", Ticker, \".csv\")\nif (!file.exists(file_path)) {\n  download.file(webLink, file_path, quiet = TRUE)\n}\ndf_KGH &lt;- read.csv(file_path)\ndf_KGH$Data &lt;- as.Date(df_KGH$Data)\n\n# Restricting data to the last year\ndf_KGH_year &lt;- df_KGH[which(df_KGH$Data &gt;= (Sys.Date() - 365)),]\n\n# Calculating percentage changes of the high prices\nn_kgh &lt;- nrow(df_KGH_year)\ndf_KGH_year$High_pct_change &lt;- c(NA, 100 * diff(df_KGH_year$Najwyzszy) / \n                         df_KGH_year$Najwyzszy[-n_kgh])\n\ndf_KGH_year = df_KGH_year[!is.na(df_KGH_year$High_pct_change),]\n\n\nParameter estimation:\n\n\nshow/hide\nn_kgh &lt;- nrow(df_KGH_year)\nmean_kgh &lt;- mean(df_KGH_year$High_pct_change)\nvar_kgh &lt;- var(df_KGH_year$High_pct_change)\nsd_kgh &lt;- sd(df_KGH_year$High_pct_change)\n\n\nThe estimated mean value is 0.1466 %, and the variance is 13.577 %.\nVerification of distribution “normality”:\n\n\nshow/hide\nhist(df_KGH_year$High_pct_change, breaks = 30, prob = TRUE, \n     main = \"Histogram of High Price Changes (KGHM)\",\n     xlab = \"Percentage change [%]\", ylab = \"Density\")\ncurve(dnorm(x, mean = mean_kgh, sd = sd_kgh), add = TRUE, col = \"red\", lwd = 2)\ngrid()\n\n\n\n\n\n\n\n\n\nThe histogram suggests that the distribution is close to normal (symmetric, bell-shaped), although there are “fat tails” and a higher concentration around the mean than in the ideal theoretical distribution. The theoretical normal distribution underestimates the frequency of events with small changes in the highest price. Additionally, the theoretical distribution underestimates extreme events, i.e., theoretical indications suggest a virtually zero probability of such an event occurring, whereas in reality they do occur and can determine the success of an investment. In short: the normal distribution does not account for extreme events.\nConfidence intervals for the mean and variance:\n\n\nshow/hide\nconf_levels = c(0.90, 0.95, 0.99)\nresults_mean = data.frame(Level = conf_levels, Lower = NA, Upper = NA)\nresults_var = data.frame(Level = conf_levels, Lower = NA, Upper = NA)\n\nfor(i in 1:length(conf_levels)) {\n  gamma = conf_levels[i]\n  \n  # Interval for the mean (Student's t-distribution, as estimates are from the sample)\n  w = sd_kgh * qt((1 + gamma)/2, n_kgh - 1) / sqrt(n_kgh)\n  results_mean[i, 2:3] = c(mean_kgh - w, mean_kgh + w)\n  \n  # Interval for the variance (chi-squared distribution, as variance cannot be negative)\n  a = (1 - gamma)/2\n  b = (1 - gamma)/2\n  results_var[i, 2:3] = c((n_kgh - 1) * var_kgh / qchisq(1 - b, n_kgh - 1),\n                           (n_kgh - 1) * var_kgh / qchisq(a, n_kgh - 1))\n}\n\n\nConfidence intervals for the mean value:\n\n\n  Level      Lower     Upper\n1  0.90 -0.5347422 0.8278794\n2  0.95 -0.6681851 0.9613223\n3  0.99 -0.9337402 1.2268774\n\n\nConfidence intervals for the variance:\n\n\n  Level     Lower    Upper\n1  0.90 10.661226 17.98532\n2  0.95 10.186390 19.00437\n3  0.99  9.337606 21.22570\n\n\nConclusions: As the confidence level increases (from 90% to 99%), the width of the confidence intervals increases, which is consistent with theory – to have greater confidence that the parameter lies within the interval, we must widen that interval. It should be noted that a useful value for an investor or manager would be to use the standard deviation, which operates in real units. Thus, the risk measure, eg. volatility, remains a factor of individual assessment or can be used to set the position size in a portfolio targeting pre-determined return-to-risk parameters.\nConclusions cont.: Although the determined confidence intervals for the mean and variance allow for a mathematical description of KGHM’s stock price volatility, their decision-making value in a long-term investment strategy is limited. Statistics only describe historical price behavior (symptoms) without delving into the company’s business model (causes). For a fundamental investor, the health of the company remains crucial, whereas variance analysis serves only for technical adjustment of the acceptable portfolio fluctuation level (volatility management rather than value management).\n\n\n\n3 Bayesian Inference\nA tossed thumbtack lands point-down or point-up. This experiment can be described by a Bernoulli distribution with parameter \\(p\\) representing the probability of the thumbtack landing point-up.\nThe distribution of the parameter \\(p\\) can be described by a Beta distribution with parameters \\(\\alpha\\) and \\(\\beta\\). The mean and variance in a Beta distribution depend on the parameters of the distribution in the following way: \\[ \\mathbb{E}X = \\frac{\\alpha}{\\alpha + \\beta}, \\qquad \\mathbb{V}X = \\frac{\\alpha\\beta}{(\\alpha + \\beta)^2(\\alpha + \\beta + 1)}, \\qquad mode = \\frac{\\alpha - 1}{\\alpha + \\beta - 2}.\\]\n\nBased on the hypothesized (prior) expected value of the parameter \\(p\\), propose values for the parameters \\(\\alpha\\) and \\(\\beta\\) of the prior distribution of parameter \\(p\\). Draw the prior distribution of parameter \\(p\\) (use the dbeta() function).\n\nToss the thumbtack 20 times and record the results of subsequent tosses (1 - thumbtack lands point-up, 0 - thumbtack lands point-down). Determine and plot the posterior distribution of parameter \\(p\\) and calculate the value of the Bayesian estimator \\(\\hat{p}\\). In the case under consideration, the posterior distribution of parameter \\(p\\) is also a Beta distribution with parameters: \\[ \\alpha_{\\textrm{post}} = \\alpha_{\\textrm{prior}} + \\sum_{i=1}^n x_i, \\qquad \\beta_{\\textrm{post}} = \\beta_{\\textrm{prior}} + n - \\sum_{i=1}^n x_i,\\qquad x_i\\in\\{0,1\\}.\\]\n\nToss the thumbtack another 20 times and record the results. Determine and plot the posterior distribution based on all 40 tosses and calculate the value of the Bayesian estimator \\(\\hat{p}\\) in this case. Compare the results with those obtained after the first 20 tosses.\n\nUsing the formula for the variance of the Beta distribution, determine and compare the variances of the prior distribution, posterior after 20 tosses, and posterior after 40 tosses.\n\nPrior parameters proposal: We assume that \\(p \\approx 0.4\\). We adopt \\(\\alpha_{prior} = 4\\) and \\(\\beta_{prior} = 6\\).\nThen \\(\\mathbb{E}p = 4 / (4+6) = 0.4\\).\n\n\nshow/hide\n# Let the \"strength\" of belief be 10 (the sample size indicates low certainty)\nalpha_prior = 4  # successes\nbeta_prior = 6   # failures\n\ncurve(dbeta(x, alpha_prior, beta_prior), from = 0, to = 1,\n      main = \"Prior distribution (Beta)\", xlab = \"p\", ylab = \"f(p)\",\n      col = \"red\", lwd = 2)\ngrid()\n\n\n\n\n\n\n\n\n\nSimulation of the first 20 tosses and determination of the posterior distribution: (We simulate tosses with probability \\(p = 0.35\\))\n\n\nshow/hide\nset.seed(123)\nn1 = 20\nx1 = rbinom(n1, 1, 0.35)  # toss simulation\ns1 = sum(x1)  # sum of successes\n\nalpha_post1 = alpha_prior + s1\nbeta_post1 = beta_prior + n1 - s1\n\n# Bayesian estimator - expected value of the posterior distribution\np_hat1 = alpha_post1 / (alpha_post1 + beta_post1)  # updating p\n\n\nIn the first 20 tosses, 8 successes were obtained. Posterior parameters (n=20): \\(\\alpha_{post1}\\) = 12, \\(\\beta_{post1}\\) = 18. Bayesian estimator \\(\\hat{p}_{20}\\) = 0.4.\nSimulation of the next 20 tosses (40 total):\n\n\nshow/hide\nn2 = 20\nx2 = rbinom(n2, 1, 0.35)\ns2 = sum(x2)\n\n# Accumulating observations\ns_total = s1 + s2\nn_total = n1 + n2\n\nalpha_post2 = alpha_prior + s_total\nbeta_post2 = beta_prior + n_total - s_total\np_hat2 = alpha_post2 / (alpha_post2 + beta_post2)\n\n\nIn a total of 40 tosses, 18 successes were obtained. Posterior parameters (n=40): \\(\\alpha_{post2}\\) = 22, \\(\\beta_{post2}\\) = 28. Bayesian estimator \\(\\hat{p}_{40}\\) = 0.44.\nComparison plot:\n\n\nshow/hide\ncurve(dbeta(x, alpha_post2, beta_post2), from = 0, to = 1, col = \"green\", lwd = 2,\n      main = \"Comparison of distributions\", xlab = \"p\", ylab = \"f(p)\")\ncurve(dbeta(x, alpha_post1, beta_post1), add = TRUE, col = \"blue\", lwd = 2)\ncurve(dbeta(x, alpha_prior, beta_prior), add = TRUE, col = \"red\", lwd = 2, lty = 2)\nlegend(\"topright\", legend = c(\"Prior\", \"Posterior (n=20)\", \"Posterior (n=40)\"),\n       col = c(\"red\", \"blue\", \"green\"), lty = c(2, 1, 1), lwd = 2)\ngrid()\n\n\n\n\n\n\n\n\n\nVariance comparison:\n\n\nshow/hide\nvar_beta = function(a, b) (a * b) / ((a + b)^2 * (a + b + 1))\nv_prior = var_beta(alpha_prior, beta_prior)\nv_post1 = var_beta(alpha_post1, beta_post1)\nv_post2 = var_beta(alpha_post2, beta_post2)\n\n\nPrior variance: 0.021818. Posterior variance (n=20): 0.007742. Posterior variance (n=40): 0.004831.\nConclusions: As the number of tosses increases (from 0 to 20 and 40), the variance of the distribution of parameter \\(p\\) decreases, which indicates an increase in certainty regarding the estimated probability value. The distribution becomes more “concentrated” around the true value.\n\n\n\n4 Analysis of Photon Registration Intervals\nThe file fotony.txt contains intervals between registration times of consecutive gamma-ray photons captured by the Compton Gamma Ray Observatory (CGRO) space telescope in 1991.\n\nLoad the data using the command scan(‘fotony.txt’)\n\nUsing the method of moments and the maximum likelihood method, determine the estimates of the gamma distribution parameters corresponding to the registered data. Compare the results obtained for both methods.\n\nOn a single plot, draw the histogram of intervals and the probability density functions of the gamma distribution with parameters estimated using both methods.\n\nUsing the parametric bootstrap method, determine the standard deviations of the gamma distribution parameter estimators (\\(\\alpha\\) and \\(\\beta\\)) and their 95% confidence intervals for both methods (moments and maximum likelihood). Compare the results obtained for both methods.\n\nData loading:\n\n\nshow/hide\nphotons_path = 'data/fotony.txt'\nphotons_x = scan(photons_path)\nphotons_n = length(photons_x)\n\n\nMethod of Moments (MoM):\n\n\nshow/hide\n# We assume that the sample characteristics should correspond to the theoretical characteristics of the model\nm1 = mean(photons_x)\nm2 = mean(photons_x^2)\n\n# Thus the variance will be: m2 - m1^2\nalpha_mom = m1^2 / (m2 - m1^2)\nbeta_mom = (m2 - m1^2) / m1\n\n\nMoM Estimates: \\(\\hat{\\alpha}\\) = 1.0655, \\(\\hat{\\beta}\\) = 73.6241.\nMaximum Likelihood Estimation (MLE):\n\n\nshow/hide\n# Likelihood equation (derivative = 0)\nfun_mle = function(a) digamma(a) - log(a) - mean(log(photons_x)) + \n  log(mean(photons_x))\n\n# Searching for the optimal alpha (peak)\n# The interval results from the previously calculated alpha size\nalpha_mle = uniroot(fun_mle, lower = 0.1, upper = 10)$root\nbeta_mle = mean(photons_x) / alpha_mle\n\n\nMLE Estimates: \\(\\hat{\\alpha}\\) = 1.052, \\(\\hat{\\beta}\\) = 74.5736.\nConclusion: The estimated shape parameter \\(\\hat{\\alpha}\\) indicates that the photon registration process by the CGRO telescope is close to a Poisson process (exponential distribution), which is consistent with the physical nature of gamma radiation registration. The obtained scale \\(\\hat{\\beta}\\) allows for precise determination of the intensity of this radiation during the studied period.\nGraphical comparison:\n\n\nshow/hide\nhist(photons_x, breaks = 50, prob = TRUE, main = \"Histogram of photon intervals\",\n     xlab = \"Time interval\", ylab = \"Density\")\ncurve(dgamma(x, shape = alpha_mom, scale = beta_mom), add = TRUE, \n      col = \"blue\", lwd = 2)\ncurve(dgamma(x, shape = alpha_mle, scale = beta_mle), add = TRUE, \n      col = \"red\", lwd = 2, lty = 2)\nlegend(\"topright\", legend = c(\"MoM\", \"MLE\"), col = c(\"blue\", \"red\"), \n       lty = c(1, 2), lwd = 2)\ngrid()\n\n\n\n\n\n\n\n\n\nConclusions: Visual analysis of the histogram and the overlaid Gamma densities estimated using the MoM and MLE methods confirms the high quality of the model fit. The negligible differences between the two estimation methods and the close fit of the curves to the empirical data suggest that the parameters \\(\\hat{\\alpha}\\) and \\(\\hat{\\beta}\\) were estimated reliably, and the Gamma distribution correctly captures the characteristics of the intervals between photon registrations.\nParametric bootstrap:\n\n\nshow/hide\nK = 1000\nboot_results = replicate(K, {\n  # For MoM\n  boot_data_mom = rgamma(photons_n, shape = alpha_mom, scale = beta_mom)\n  bm1 = mean(boot_data_mom); bm2 = mean(boot_data_mom^2)\n  b_alpha_mom = bm1^2 / (bm2 - bm1^2)\n  b_beta_mom = (bm2 - bm1^2) / bm1\n  \n  # For MLE\n  boot_data_mle = rgamma(photons_n, shape = alpha_mle, scale = beta_mle)\n  b_alpha_mle = uniroot(function(a) digamma(a) - log(a) -\n                          mean(log(boot_data_mle)) + log(mean(boot_data_mle)),\n                        lower = 0.1, upper = 10)$root\n  b_beta_mle = mean(boot_data_mle) / b_alpha_mle\n  \n  c(b_alpha_mom, b_beta_mom, b_alpha_mle, b_beta_mle)\n})\n\nsd_results = apply(boot_results, 1, sd)\nconf_intervals_results = apply(boot_results, 1, quantile, probs = c(0.025, 0.975))\n\nresults_tab = data.frame(\n  Method = c(\"MoM alpha\", \"MoM beta\", \"MLE alpha\", \"MLE beta\"),\n  Estimate = c(alpha_mom, beta_mom, alpha_mle, beta_mle),\n  SD_boot = sd_results,\n  ConfInterval_2.5 = conf_intervals_results[1,],\n  ConfInterval_97.5 = conf_intervals_results[2,]\n)\n\n\nParametric bootstrap results:\n\n\n     Method  Estimate    SD_boot ConfInterval_2.5 ConfInterval_97.5\n1 MoM alpha  1.065542 0.03301125         1.005232          1.132223\n2  MoM beta 73.624064 2.57559857        68.866734         78.804513\n3 MLE alpha  1.051974 0.02035316         1.013378          1.093801\n4  MLE beta 74.573635 1.83656352        70.866948         78.007241\n\n\nStatistical analysis of intervals between photons demonstrated that the Gamma distribution model is highly stable. Comparison of estimation methods indicates the advantage of the Maximum Likelihood Estimation (MLE) method, which provided estimators with a lower standard error (\\(SD_{\\alpha} = 0.020\\)) and narrower 95% confidence intervals compared to the Method of Moments. The determined confidence intervals for the shape parameter \\(\\alpha\\) (MLE: \\([1.013; 1.094]\\)) allow us to reject the hypothesis of a purely exponential nature of the distribution (\\(\\alpha = 1\\)) at a significance level of \\(0.05\\). The process has a subtle structure that cannot be explained by a simple exponential distribution.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Parameter estimation and distributions"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Analytical Portfolio - Computational Statistics in R",
+    "section": "",
+    "text": "I present here practical applications of statistics and the R language in business, financial, and other data analysis. Each of the following projects constitutes a comprehensive case study – from initial data preparation, through hypothesis testing, to the construction of predictive models.\n\n\n\n\n\nStock trend and flight statistics analysis using advanced visualization techniques.\n\n\n\nModeling mass phenomena and statistical inference based on probability distributions.\n\n\n\nVerification of statistical significance in clinical trials, industry, and sports.\n\n\n\nAnalysis of multidimensional relationships and business outcome forecasting.\n\n\nI invite you to explore the detailed reports available in the sidebar menu."
+  },
+  {
+    "objectID": "index.html#projects-overview",
+    "href": "index.html#projects-overview",
+    "title": "Analytical Portfolio - Computational Statistics in R",
+    "section": "",
+    "text": "Stock trend and flight statistics analysis using advanced visualization techniques.\n\n\n\nModeling mass phenomena and statistical inference based on probability distributions.\n\n\n\nVerification of statistical significance in clinical trials, industry, and sports.\n\n\n\nAnalysis of multidimensional relationships and business outcome forecasting.\n\n\nI invite you to explore the detailed reports available in the sidebar menu."
+  },
+  {
+    "objectID": "lab3.html",
+    "href": "lab3.html",
+    "title": "Statistical Hypothesis Testing",
+    "section": "",
+    "text": "The file tempciala.txt contains recorded values of heart rate and body temperature for 65 men (gender = 1) and 65 women (gender = 2).\nSeparately for men and women:\n\nestimate the mean and standard deviation of temperature,\nverify at the significance level \\(\\alpha = 0.05\\) the hypothesis that the mean temperature is equal to 36.6 \\(^\\circ\\)C against the alternative hypothesis that the mean temperature is different, assuming that the temperatures have a normal distribution and the variance of the distribution is unknown.\n\nSince the variance of the distribution is unknown as indicated in the task, it should be estimated based on the sample standard deviation. Student’s t-test provides a wider “width” of the normal distribution, allowing for safer inference with an unknown variance.\nThe t.test function requires the investigated characteristic to have a normal distribution. This is satisfied by the task description.\n\n\nshow/hide\n# Load data\ntemp_data &lt;- read.csv(\"data/tempciala.txt\")\nnames(temp_data) &lt;- c(\"temperature\", \"gender\", \"heart_rate\")\n\n# Split into groups\nmen_temp &lt;- temp_data$temperature[temp_data$gender == 1]\nwomen_temp &lt;- temp_data$temperature[temp_data$gender == 2]\n\n# Parameter estimation\nmean_men &lt;- mean(men_temp)\nsd_men &lt;- sd(men_temp)\nmean_women &lt;- mean(women_temp)\nsd_women &lt;- sd(women_temp)\n\n# Display estimation results\ndata.frame(\n  Gender = c(\"Men\", \"Women\"),\n  Mean = c(mean_men, mean_women),\n  Std_dev = c(sd_men, sd_women)\n)\n\n\n  Gender     Mean   Std_dev\n1    Men 36.72615 0.3882158\n2  Women 36.88923 0.4127359\n\n\nshow/hide\n# Hypothesis tests of hypothetical mean body temperature (H0: mu = 36.6)\n# By default, a two-sided test is performed\n# The confidence level resulting from the task is explicitly provided\nmen_test &lt;- t.test(men_temp, conf.level = 0.95, mu = 36.6)\nwomen_test &lt;- t.test(women_temp, conf.level = 0.95, mu = 36.6)\n\nmen_test\n\n\n\n    One Sample t-test\n\ndata:  men_temp\nt = 2.6199, df = 64, p-value = 0.01097\nalternative hypothesis: true mean is not equal to 36.6\n95 percent confidence interval:\n 36.62996 36.82235\nsample estimates:\nmean of x \n 36.72615 \n\n\nshow/hide\nwomen_test\n\n\n\n    One Sample t-test\n\ndata:  women_temp\nt = 5.6497, df = 64, p-value = 3.985e-07\nalternative hypothesis: true mean is not equal to 36.6\n95 percent confidence interval:\n 36.78696 36.99150\nsample estimates:\nmean of x \n 36.88923 \n\n\n\n\nFor men, the estimated mean temperature is approx. 36.73 \\(^\\circ\\)C, and the standard deviation is approx. 0.39 \\(^\\circ\\)C. The p-value (0.011) is less than \\(\\alpha=0.05\\), so we reject the null hypothesis \\(H_0\\) in favor of the alternative. The mean temperature in men differs significantly from 36.6 \\(^\\circ\\)C.\nFor women, the estimated mean temperature is approx. 36.89 \\(^\\circ\\)C, and the standard deviation is approx. 0.41 \\(^\\circ\\)C. The p-value (3.985e-07) is significantly less than \\(\\alpha=0.05\\), so we reject the null hypothesis \\(H_0\\) in favor of the alternative. The mean temperature in women also differs significantly from 36.6 \\(^\\circ\\)C.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Statistical hypothesis testing"
+    ]
+  },
+  {
+    "objectID": "lab3.html#conclusions",
+    "href": "lab3.html#conclusions",
+    "title": "Statistical Hypothesis Testing",
+    "section": "",
+    "text": "For men, the estimated mean temperature is approx. 36.73 \\(^\\circ\\)C, and the standard deviation is approx. 0.39 \\(^\\circ\\)C. The p-value (0.011) is less than \\(\\alpha=0.05\\), so we reject the null hypothesis \\(H_0\\) in favor of the alternative. The mean temperature in men differs significantly from 36.6 \\(^\\circ\\)C.\nFor women, the estimated mean temperature is approx. 36.89 \\(^\\circ\\)C, and the standard deviation is approx. 0.41 \\(^\\circ\\)C. The p-value (3.985e-07) is significantly less than \\(\\alpha=0.05\\), so we reject the null hypothesis \\(H_0\\) in favor of the alternative. The mean temperature in women also differs significantly from 36.6 \\(^\\circ\\)C.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Statistical hypothesis testing"
+    ]
+  },
+  {
+    "objectID": "lab3.html#conclusions-1",
+    "href": "lab3.html#conclusions-1",
+    "title": "Statistical Hypothesis Testing",
+    "section": "2.1 Conclusions",
+    "text": "2.1 Conclusions\nThe p-value (1.852011e-06) is significantly less than the significance level \\(\\alpha=0.05\\). This means we reject the hypothesis of a constant intensity of suicides proportional to the number of days in the month. The data indicate the presence of seasonal variation in the number of suicides.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Statistical hypothesis testing"
+    ]
+  },
+  {
+    "objectID": "lab3.html#conclusions-2",
+    "href": "lab3.html#conclusions-2",
+    "title": "Statistical Hypothesis Testing",
+    "section": "3.1 Conclusions",
+    "text": "3.1 Conclusions\nStatistical analysis of the percentage changes of the KGH stock price exhibits classic characteristics of financial time series. The results of the tests at the significance level \\(\\alpha = 0.05\\) are as follows:\n\nRejection of normality: The Shapiro-Wilk test (\\(p = 1.876e-02\\)) and the Jarque-Bera test (\\(p = 5.163e-05\\)) unambiguously reject the null hypothesis \\(H_0\\).\nCause of non-normality (leptokurtosis): The Anscombe-Glynn test shows high kurtosis at 5.41. The very low \\(p = 3.161e-03\\) provides statistical evidence for the presence of “heavy tails”.\nSkewness: D’Agostino’s test shows skewness at -0.086. The p-value \\(p = 0.7353\\) is greater than \\(\\alpha\\), meaning there are no grounds to reject the hypothesis of distribution symmetry.\nKS test specificity: The Kolmogorov-Smirnov test (\\(p = 0.637\\)) is the only one that does not reject \\(H_0\\). This confirms its lower sensitivity to tail anomalies compared to moment-based tests (JB, Anscombe). The test measures the maximum distance between cumulative distribution functions, which in this case oscillates around the area of highest probability density, explaining the above statement. Furthermore, the KS test could be somewhat overly optimistic due to estimating parameters from the sample – it is less likely to reject the hypothesis of non-normality even when the data are non-normal.\nTo “update” the KS test, an additional Lilliefors test was conducted using the “nortest” library. This test clearly indicates non-normality since \\(p = 2.151e-01\\) clearly rejects the null hypothesis \\(H_0\\).\n\nSummary: Since key tests (Shapiro-Wilk, Jarque-Bera) returned \\(p &lt; \\alpha\\), we assume that the price change distribution is not normal. The dominant feature is leptokurtosis, which means that the risk of extreme events is higher than in the theoretical model.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Statistical hypothesis testing"
+    ]
+  },
+  {
+    "objectID": "lab3.html#conclusions-3",
+    "href": "lab3.html#conclusions-3",
+    "title": "Statistical Hypothesis Testing",
+    "section": "4.1 Conclusions",
+    "text": "4.1 Conclusions\n\nThe result of Welch’s t-test (p-value = 0.0541) at the significance level \\(\\alpha=0.05\\) provides no grounds to reject the hypothesis of no difference between the mean bearing operating times (p-value &gt; 0.05).\nThe result of the Wilcoxon test (p-value = 0.063) also does not allow rejecting the hypothesis of no difference between the distributions (p-value &gt; 0.05).\n\nIn both cases, we assume that there are no statistically significant differences in the operating times of bearings made of different materials.\nAdditionally: The estimated probability that a bearing made of the first material will operate longer than a bearing made of the second material is approximately 75%. Although Type I bearings operated longer than Type II bearings in 75% of cases, at the significance level \\(\\alpha = 0.05\\), it was not possible to prove that this difference is permanent and reproducible. This suggests that Type I may be better in practice; however, to confirm this thesis with statistical certainty, further study with a larger sample size is required.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Statistical hypothesis testing"
+    ]
+  },
+  {
+    "objectID": "lab3.html#conclusions-4",
+    "href": "lab3.html#conclusions-4",
+    "title": "Statistical Hypothesis Testing",
+    "section": "5.1 Conclusions",
+    "text": "5.1 Conclusions\nThe p-value (0.1116) is greater than the significance level \\(\\alpha=0.05\\). This means there are no grounds to reject the hypothesis of the independence of match results (wins, draws, and losses) from the country/league in which the matches are played. The 1, X, 2 statistics in the analyzed leagues are sufficiently close to each other to prevent finding significant differences.",
+    "crumbs": [
+      "Home",
+      "Projects",
+      "Statistical hypothesis testing"
+    ]
+  }
+]
